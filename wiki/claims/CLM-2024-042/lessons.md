@@ -13,7 +13,7 @@ promotion: appetite and wording review for vendor-operated systems in
 cyber-logistics - explicit questions at submission (who operates, what
 standing access exists, whose controls are scheduled) and wording that
 allocates vendor risk explicitly instead of leaving CY-EX-04 ambiguous.
-References: SUB-2024-018, coverage.md this case, forensics-report source
+References: [[submissions/SUB-2024-018/index|SUB-2024-018]], coverage.md this case, forensics-report source
 note.
 
 ## S-001 - Skill candidate - vendor-access review checklist

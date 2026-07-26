@@ -24,4 +24,4 @@ policy in June 2024 - see linked claim for how the coverage held up.
 - sources/                  1 source note (risk survey)
 
 ## Related
-- ../../claims/CLM-2024-042/   the claim on this policy
+- [[claims/CLM-2024-042/index|CLM-2024-042]] - the claim on this policy

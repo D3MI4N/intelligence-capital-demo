@@ -26,4 +26,4 @@ resolved in favour of the insured. Settled at EUR 2.1M.
 - sources/           3 source notes
 
 ## Related
-- ../../submissions/SUB-2024-018/   the originating submission
+- [[submissions/SUB-2024-018/index|SUB-2024-018]] - the originating submission
