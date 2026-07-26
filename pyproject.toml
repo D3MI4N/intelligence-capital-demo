@@ -4,13 +4,19 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "openai>=2.48.0",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "sqlite-vec>=0.1.9",
+]
 
 [dependency-groups]
 dev = [
     "mypy>=2.3.0",
     "pytest>=9.1.1",
     "ruff>=0.16.0",
+    "types-pyyaml>=6.0.12.20260724",
 ]
 
 [tool.ruff]
@@ -20,6 +26,13 @@ target-version = "py312"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+exclude = ["\\.venv"]
+
+# The vector extension ships no type stubs.
+[[tool.mypy.overrides]]
+module = ["sqlite_vec.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
