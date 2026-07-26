@@ -37,6 +37,12 @@ demo.py must run these five beats end to end:
 - Wiki links use Obsidian wikilink syntax with vault-root paths:
   [[submissions/SUB-2024-018/index|SUB-2024-018]]. The ingest parser treats
   the label as text and the path as a graph edge.
+- Graph and vector stores sit behind store protocols (GraphStore,
+  VectorStore). The demo implementation is embedded SQLite; swapping to a
+  native graph database (e.g. an embedded Cypher engine) is a deliberate
+  post-rehearsal option and must only require a new protocol
+  implementation passing the existing tests. Nothing outside the store
+  modules may know which engine is in use.
 
 ## Repo layout
 
