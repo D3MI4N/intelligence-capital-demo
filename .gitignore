@@ -5,6 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 traces/
+.index/
 *.pyc
 .obsidian/
 wiki/*.canvas
