@@ -48,7 +48,7 @@ def test_the_hash_backend_is_selectable(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_the_backend_argument_wins_over_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("EMBED_BACKEND", "openai")
+    monkeypatch.setenv("EMBED_BACKEND", "llm")
 
     assert embed.select_embedder("hash") is hash_embed
 
@@ -56,7 +56,7 @@ def test_the_backend_argument_wins_over_the_environment(monkeypatch: pytest.Monk
 def test_the_default_backend_is_the_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("EMBED_BACKEND", raising=False)
 
-    assert embed.backend_name() == "openai"
+    assert embed.backend_name() == "llm"
 
 
 def test_an_unknown_backend_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:

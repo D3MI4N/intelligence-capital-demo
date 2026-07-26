@@ -27,12 +27,13 @@ from ingest.models import Chunk
 BATCH_SIZE = 64
 
 # EMBED_BACKEND chooses where vectors come from:
-#   openai  the model provider, through agents/llm.py - the default, and what a
-#           real rebuild uses. Needs credentials and makes network calls.
-#   hash    deterministic offline vectors from ingest/hash_embedder.py. No
-#           network and no credentials, so the pipeline can be rebuilt and
-#           tested anywhere. Retrieval results are meaningless - wiring only.
-DEFAULT_BACKEND = "openai"
+#   llm   the model provider, through agents/llm.py - the default, and what a
+#         real rebuild uses. Needs credentials and makes network calls. Which
+#         provider that is stays llm.py's business, not this module's.
+#   hash  deterministic offline vectors from ingest/hash_embedder.py. No
+#         network and no credentials, so the pipeline can be rebuilt and tested
+#         anywhere. Retrieval results are meaningless - wiring only.
+DEFAULT_BACKEND = "llm"
 
 EmbedFn = Callable[[list[str]], list[list[float]]]
 
@@ -52,7 +53,7 @@ def select_embedder(backend: str | None = None) -> EmbedFn:
         from agents.llm import embed
 
         return embed
-    raise ValueError(f"unknown EMBED_BACKEND '{name}' - use openai or hash")
+    raise ValueError(f"unknown EMBED_BACKEND '{name}' - use llm or hash")
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
