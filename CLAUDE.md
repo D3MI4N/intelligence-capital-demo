@@ -34,6 +34,9 @@ demo.py must run these five beats end to end:
   "vector index" not a product name, "knowledge graph" not a product name.
   The LLM provider is invisible outside llm.py.
 - Every MCP call and every wiki write is appended to traces/ as JSONL.
+- Wiki links use Obsidian wikilink syntax with vault-root paths:
+  [[submissions/SUB-2024-018/index|SUB-2024-018]]. The ingest parser treats
+  the label as text and the path as a graph edge.
 
 ## Repo layout
 
