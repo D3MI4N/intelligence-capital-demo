@@ -24,7 +24,11 @@ from ingest.models import Document
 
 CASE_ATTRIBUTES = ("type", "status", "class", "insured", "opened", "closed")
 PERIL_FIELDS = ("peril", "peril_focus", "perils")
-CASE_LINK_FIELDS = ("linked_claim", "linked_submission")
+# Frontmatter field -> the relation it declares.
+CASE_LINK_RELATIONS = {
+    "linked_claim": entities.LINKED_CLAIM,
+    "linked_submission": entities.LINKED_SUBMISSION,
+}
 RAW_CASE_FIELDS = ("claim", "submission")
 
 
@@ -96,7 +100,7 @@ class _Builder:
                 if (value := _text(document.frontmatter.get(key)))
             }
             node = self._add(entities.CASE, case_id, case_id, attrs)
-            self._link(doc_node, node, "belongs_to", document.doc_id)
+            self._link(doc_node, node, entities.BELONGS_TO, document.doc_id)
             return node
 
         # Raw documents carry no case_id - they name their case directly.
@@ -104,11 +108,11 @@ class _Builder:
             named = _text(document.frontmatter.get(field_name))
             if named:
                 node = self._add(entities.CASE, named, named)
-                self._link(doc_node, node, "about_case", document.doc_id)
+                self._link(doc_node, node, entities.ABOUT_CASE, document.doc_id)
 
         for prefix, case_node in self.case_dirs:
             if document.doc_id.startswith(prefix):
-                self._link(doc_node, case_node, "belongs_to", document.doc_id)
+                self._link(doc_node, case_node, entities.BELONGS_TO, document.doc_id)
                 return case_node
         return None
 
@@ -117,30 +121,30 @@ class _Builder:
         if insured:
             node = self._add(entities.INSURED, entities.slug(insured), insured)
             if case_node:
-                self._link(case_node, node, "insured_by", document.doc_id)
+                self._link(case_node, node, entities.INSURED_BY, document.doc_id)
             else:
-                self._link(doc_node, node, "mentions_insured", document.doc_id)
+                self._link(doc_node, node, entities.MENTIONS_INSURED, document.doc_id)
 
         risk_class = _text(document.frontmatter.get("class"))
         if risk_class:
             node = self._add(entities.RISK_CLASS, risk_class, risk_class)
             if case_node:
-                self._link(case_node, node, "in_class", document.doc_id)
+                self._link(case_node, node, entities.IN_CLASS, document.doc_id)
 
         domain = _text(document.frontmatter.get("domain"))
         if domain and domain != "all":
             node = self._add(entities.RISK_CLASS, domain, domain)
-            self._link(doc_node, node, "applies_to_class", document.doc_id)
+            self._link(doc_node, node, entities.APPLIES_TO_CLASS, document.doc_id)
 
         for peril in _values(document.frontmatter, PERIL_FIELDS):
             node = self._add(entities.PERIL, peril, peril)
-            self._link(case_node or doc_node, node, "involves_peril", document.doc_id)
+            self._link(case_node or doc_node, node, entities.INVOLVES_PERIL, document.doc_id)
 
     def _case_links(self, document: Document, case_node: str | None) -> None:
         if not case_node:
             return
-        for relation in CASE_LINK_FIELDS:
-            target = _text(document.frontmatter.get(relation))
+        for field_name, relation in CASE_LINK_RELATIONS.items():
+            target = _text(document.frontmatter.get(field_name))
             if not target:
                 continue
             node = self._add(entities.CASE, target, target)
@@ -149,25 +153,25 @@ class _Builder:
     def _identifiers(self, document: Document, anchor: str, doc_node: str) -> None:
         for clause in entities.find_clauses(document.text):
             node = self._add(entities.CLAUSE, clause, clause)
-            self._link(doc_node, node, "mentions_clause", document.doc_id)
+            self._link(doc_node, node, entities.MENTIONS_CLAUSE, document.doc_id)
             if anchor != doc_node:
-                self._link(anchor, node, "mentions_clause", document.doc_id)
+                self._link(anchor, node, entities.MENTIONS_CLAUSE, document.doc_id)
 
         for lesson in entities.find_lessons(document.text):
             node = self._add(entities.LESSON, lesson, self.labels.get(lesson, lesson))
-            self._link(doc_node, node, "records_lesson", document.doc_id)
+            self._link(doc_node, node, entities.RECORDS_LESSON, document.doc_id)
             if anchor != doc_node:
-                self._link(anchor, node, "has_lesson", document.doc_id)
+                self._link(anchor, node, entities.HAS_LESSON, document.doc_id)
 
         declared = _text(document.frontmatter.get("skill_id"))
         if declared:
             node = self._add(entities.SKILL, declared, document.title)
-            self._link(doc_node, node, "defines_skill", document.doc_id)
+            self._link(doc_node, node, entities.DEFINES_SKILL, document.doc_id)
         for skill in entities.find_skills(document.text):
             if skill == declared:
                 continue
             node = self._add(entities.SKILL, skill, self.labels.get(skill, skill))
-            self._link(doc_node, node, "mentions_skill", document.doc_id)
+            self._link(doc_node, node, entities.MENTIONS_SKILL, document.doc_id)
 
     def _references(self, document: Document, case_node: str | None, doc_node: str) -> None:
         case_of = self.case_of
@@ -176,10 +180,10 @@ class _Builder:
             if target is None:
                 continue
             target_node = entities.node_id(entities.DOCUMENT, target)
-            self._link(doc_node, target_node, "references", document.doc_id)
+            self._link(doc_node, target_node, entities.REFERENCES, document.doc_id)
             target_case = case_of.get(target)
             if case_node and target_case and target_case != case_node:
-                self._link(case_node, target_case, "related_case", document.doc_id)
+                self._link(case_node, target_case, entities.RELATED_CASE, document.doc_id)
 
         for locator in _origins(document):
             target = self._resolve(locator)
@@ -188,7 +192,7 @@ class _Builder:
             self._link(
                 doc_node,
                 entities.node_id(entities.DOCUMENT, target),
-                "derived_from",
+                entities.DERIVED_FROM,
                 document.doc_id,
             )
 

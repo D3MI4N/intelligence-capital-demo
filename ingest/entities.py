@@ -1,8 +1,10 @@
 """Entity and relation vocabulary for the knowledge graph.
 
-Node types follow wiki/vocabulary/entity-types.md. Identifiers are readable on
-purpose: an agent citing "Clause:CY-EX-04" is citing something a human can look
-up. Extraction here is structural - frontmatter fields and identifier patterns,
+Node and edge types follow the tables in wiki/vocabulary/entity-types.md, and
+this module is where that vocabulary is enforced: an edge with a relation the
+wiki does not define is an error, not a new relation. Identifiers are readable
+on purpose - an agent citing "Clause:CY-EX-04" is citing something a human can
+look up. Extraction is structural - frontmatter fields and identifier patterns,
 never a model call.
 """
 
@@ -20,6 +22,47 @@ LESSON = "Lesson"
 PERIL = "Peril"
 RISK_CLASS = "RiskClass"
 SKILL = "Skill"
+
+# Edge relations, one per row of the edge-type table in entity-types.md.
+BELONGS_TO = "belongs_to"
+ABOUT_CASE = "about_case"
+INSURED_BY = "insured_by"
+MENTIONS_INSURED = "mentions_insured"
+IN_CLASS = "in_class"
+APPLIES_TO_CLASS = "applies_to_class"
+INVOLVES_PERIL = "involves_peril"
+LINKED_CLAIM = "linked_claim"
+LINKED_SUBMISSION = "linked_submission"
+RELATED_CASE = "related_case"
+REFERENCES = "references"
+DERIVED_FROM = "derived_from"
+MENTIONS_CLAUSE = "mentions_clause"
+RECORDS_LESSON = "records_lesson"
+HAS_LESSON = "has_lesson"
+DEFINES_SKILL = "defines_skill"
+MENTIONS_SKILL = "mentions_skill"
+
+RELATIONS = frozenset(
+    {
+        BELONGS_TO,
+        ABOUT_CASE,
+        INSURED_BY,
+        MENTIONS_INSURED,
+        IN_CLASS,
+        APPLIES_TO_CLASS,
+        INVOLVES_PERIL,
+        LINKED_CLAIM,
+        LINKED_SUBMISSION,
+        RELATED_CASE,
+        REFERENCES,
+        DERIVED_FROM,
+        MENTIONS_CLAUSE,
+        RECORDS_LESSON,
+        HAS_LESSON,
+        DEFINES_SKILL,
+        MENTIONS_SKILL,
+    }
+)
 
 CLAUSE_PATTERN = re.compile(r"\bCY-EX-\d{2,}\b")
 LESSON_PATTERN = re.compile(r"\bL-\d{3}\b")
@@ -40,10 +83,24 @@ class Node:
 
 @dataclass(frozen=True)
 class Edge:
+    """A relation between two nodes, and the document it was derived from.
+
+    rel must come from RELATIONS. Inventing one silently would let the graph
+    drift away from the vocabulary the wiki publishes and agents traverse by.
+    """
+
     src: str
     rel: str
     dst: str
     source_doc: str
+
+    def __post_init__(self) -> None:
+        if self.rel not in RELATIONS:
+            known = " - ".join(sorted(RELATIONS))
+            raise ValueError(
+                f"unknown relation '{self.rel}' - add it to wiki/vocabulary/"
+                f"entity-types.md and to RELATIONS. Known: {known}"
+            )
 
 
 @dataclass(frozen=True)
