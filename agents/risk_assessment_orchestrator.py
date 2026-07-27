@@ -11,6 +11,7 @@ risk on this case", and it is deliberately readable top to bottom:
     dispatch        the three specialists, each one tool call and one model call
     cross-validate  rule-based, no model, deterministic
     compose         one model call, the draft a human will read
+    normalise       the draft into house style, with the count on the trace
     write back      through propose_wiki_update, never a file write of its own
 
 Two rules the module exists to keep. The orchestrator never touches a wiki file
@@ -39,6 +40,7 @@ from agents.specialists import (
     Assessment,
     SpecialistFn,
 )
+from agents.text import normalise
 from agents.validate import ValidationReport, cross_validate, grade
 from errors import WriteRefused
 from mcp_server import tools, tracing, writes
@@ -69,10 +71,16 @@ DRAFTER = (
 DRAFT_TASK = (
     "Draft the risk assessment for {case_id}. Three to six short paragraphs of "
     "markdown, no heading, no preamble. Carry the citation ids through in "
-    "square brackets after the claim they support. Prefix anything you concluded "
-    "rather than read with 'Assessment:'. End with the open questions as they "
-    "stand - do not resolve them."
+    "square brackets after the claim they support, and cite only ids that appear "
+    "verbatim in the specialist findings below - nothing else, and never an id "
+    "you completed or adapted. Prefix anything you concluded rather than read "
+    "with 'Assessment:'."
 )
+
+# Added only when there are open questions. Asking for a section that has no
+# content invites the model to write "Open questions: none", which is a line
+# the underwriter has to read before finding out it says nothing.
+OPEN_QUESTIONS_TASK = " End with the open questions as they stand - do not resolve them."
 
 
 @dataclass(frozen=True)
@@ -91,6 +99,7 @@ def run_risk_assessment(
     case_path: str,
     context: ToolContext | None = None,
     complete: CompleteFn | None = None,
+    stamp: str | None = None,
 ) -> RunResult:
     """Assess the risk on a case and write the draft back to the wiki."""
     wiring = context or default_context()
@@ -100,7 +109,7 @@ def run_risk_assessment(
         specialist_step(wiring, orientation, meter, specialist) for specialist in SPECIALISTS
     )
     report = validate_step(wiring, assessments)
-    return write_back_step(wiring, orientation, assessments, report, meter)
+    return write_back_step(wiring, orientation, assessments, report, meter, stamp)
 
 
 def orient_step(context: ToolContext, case_path: str) -> Orientation:
@@ -130,7 +139,7 @@ def specialist_step(
 ) -> Assessment:
     """Beat two, once per specialist. The tool calls trace themselves as well."""
     assessment = specialist(context, orientation, meter)
-    tokens, calls = meter.take()
+    spend = meter.take()
     trace(
         context,
         "specialist",
@@ -139,8 +148,11 @@ def specialist_step(
             "findings": len(assessment.findings),
             "citations": list(assessment.citations),
             "flags": list(assessment.flags),
-            "model_calls": calls,
-            "tokens": tokens,
+            "model_calls": spend.calls,
+            "orientation_tokens": spend.system_tokens,
+            "context_tokens": spend.prompt_tokens,
+            "answer_tokens": spend.answer_tokens,
+            "tokens": spend.tokens,
         },
     )
     return assessment
@@ -170,32 +182,37 @@ def write_back_step(
     assessments: Sequence[Assessment],
     report: ValidationReport,
     meter: TokenMeter,
+    stamp: str | None = None,
 ) -> RunResult:
-    """Beat three: compose the draft once, then write it through the tool."""
+    """Beat three: compose the draft once, then write it through the tool.
+
+    stamp dates the records this run writes. It defaults to today and is passed
+    in only by a replayed run, which writes the date it was recorded on - the
+    same reason it answers from recorded completions rather than new ones.
+    """
     allowed = frozenset(citation for assessment in assessments for citation in assessment.citations)
     system = f"{DRAFTER}\n\n{orientation.text}"
-    prompt = "\n\n".join(
-        (
-            DRAFT_TASK.format(case_id=orientation.case_id),
-            render(assessments, report),
-        )
-    )
-    draft = strip_unverified(meter(system, prompt), allowed)
-    tokens, calls = meter.take()
+    task = DRAFT_TASK.format(case_id=orientation.case_id)
+    if report.open_questions:
+        task += OPEN_QUESTIONS_TASK
+    prompt = "\n\n".join((task, render(assessments, report)))
+    composed = normalise(meter(system, prompt))
+    draft = strip_unverified(composed.text, allowed)
+    spend = meter.take()
 
-    stamp = datetime.now(UTC).date().isoformat()
+    dated = stamp or datetime.now(UTC).date().isoformat()
     written = [
-        propose(context, orientation, BRIEFING, briefing_section(draft, allowed, stamp)),
+        propose(context, orientation, BRIEFING, briefing_section(draft, allowed, dated)),
         propose(
             context,
             orientation,
             DECISIONS,
-            decisions_section(assessments, report, stamp),
+            decisions_section(assessments, report, dated),
         ),
     ]
     if report.open_questions:
         written.append(
-            propose(context, orientation, OPEN_QUESTIONS, open_questions_section(report, stamp))
+            propose(context, orientation, OPEN_QUESTIONS, open_questions_section(report, dated))
         )
     trace(
         context,
@@ -204,8 +221,9 @@ def write_back_step(
         {
             "paths": [result["path"] for result in written],
             "created": [result["path"] for result in written if result["created"]],
-            "model_calls": calls,
-            "tokens": tokens,
+            "normalised": composed.replacements,
+            "model_calls": spend.calls,
+            "tokens": spend.tokens,
         },
     )
     return RunResult(
@@ -216,6 +234,25 @@ def write_back_step(
         draft=draft,
         writes=tuple(written),
     )
+
+
+@dataclass(frozen=True)
+class Spend:
+    """What one step cost, split the way the demo has to show it.
+
+    The three parts are three different things on screen: the system prompt is
+    the orientation the agent was handed, the prompt is the retrieval merged
+    into one context block plus its task, and the answer is what came back.
+    """
+
+    system_tokens: int
+    prompt_tokens: int
+    answer_tokens: int
+    calls: int
+
+    @property
+    def tokens(self) -> int:
+        return self.system_tokens + self.prompt_tokens + self.answer_tokens
 
 
 class TokenMeter:
@@ -229,24 +266,32 @@ class TokenMeter:
     def __init__(self, complete: CompleteFn, count: TokenCounter) -> None:
         self._complete = complete
         self._count = count
-        self._tokens = 0
-        self._calls = 0
+        self._spend = Spend(0, 0, 0, 0)
 
     def __call__(self, system: str, prompt: str) -> str:
         answer = self._complete(system, prompt)
-        self._tokens += self._count(system) + self._count(prompt) + self._count(answer)
-        self._calls += 1
+        self._spend = Spend(
+            system_tokens=self._spend.system_tokens + self._count(system),
+            prompt_tokens=self._spend.prompt_tokens + self._count(prompt),
+            answer_tokens=self._spend.answer_tokens + self._count(answer),
+            calls=self._spend.calls + 1,
+        )
         return answer
 
-    def take(self) -> tuple[int, int]:
-        """Tokens and model calls since the last take(), then reset."""
-        tokens, calls = self._tokens, self._calls
-        self._tokens, self._calls = 0, 0
-        return tokens, calls
+    def take(self) -> Spend:
+        """What has been spent since the last take(), then reset."""
+        spend = self._spend
+        self._spend = Spend(0, 0, 0, 0)
+        return spend
 
 
 def render(assessments: Sequence[Assessment], report: ValidationReport) -> str:
-    """The specialist findings and the validation result, as the drafter sees them."""
+    """The specialist findings and the validation result, as the drafter sees them.
+
+    A clean cross-validation contributes no section at all. An empty heading is
+    an invitation to fill it, and what comes back is a paragraph explaining that
+    there is nothing to report.
+    """
     blocks = []
     for assessment in assessments:
         lines = [f"### {assessment.agent} ({' - '.join(assessment.flags) or 'no flags'})"]
@@ -257,8 +302,9 @@ def render(assessments: Sequence[Assessment], report: ValidationReport) -> str:
         if not assessment.findings:
             lines.append("- nothing usable returned")
         blocks.append("\n".join(lines))
-    questions = "\n".join(f"- {question}" for question in report.open_questions) or "- none"
-    blocks.append(f"### Cross-validation\n{questions}")
+    if report.open_questions:
+        questions = "\n".join(f"- {question}" for question in report.open_questions)
+        blocks.append(f"### Cross-validation\n{questions}")
     return "\n\n".join(("## Specialist findings", *blocks))
 
 

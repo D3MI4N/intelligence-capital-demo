@@ -114,6 +114,71 @@ def test_unresolved_items_go_to_open_questions(
     assert all(question in questions for question in run.report.open_questions)
 
 
+def test_the_drafter_is_told_to_cite_only_what_the_specialists_gave_it(
+    sandbox: Sandbox, fake_llm: FakeLLM
+) -> None:
+    orchestrator.run_risk_assessment(CASE, sandbox.context, fake_llm)
+
+    _, prompt = fake_llm.calls[-1]
+    assert "cite only ids that appear verbatim in the specialist findings below" in prompt
+    assert "never an id you completed or adapted" in prompt
+
+
+def test_exotic_punctuation_is_normalised_before_the_draft_is_written(
+    run: orchestrator.RunResult, sandbox: Sandbox
+) -> None:
+    """The model writes a non-breaking hyphen; the wiki gets a hyphen."""
+    briefing = sandbox.written(CASE_DIR, "briefing.md")
+
+    assert "vendor-operated systems - the loss path" in briefing
+    assert FakeLLM.EXOTIC not in briefing
+    assert "\u2011" not in run.draft
+
+
+def test_the_normalisation_is_counted_on_the_trace(
+    run: orchestrator.RunResult, sandbox: Sandbox
+) -> None:
+    """A cleanup nobody can see is a cleanup nobody can audit."""
+    written = [line for line in traces(sandbox) if line["tool"] == "agent.write_back"]
+
+    assert written[0]["result"]["normalised"] == 2
+
+
+def test_a_clean_run_raises_no_open_questions_and_writes_no_file_for_them(
+    sandbox: Sandbox,
+) -> None:
+    """An empty section is a heading the underwriter reads for nothing."""
+    clean = FakeLLM(severity="medium", position="in-appetite", invents=False)
+
+    result = orchestrator.run_risk_assessment(CASE, sandbox.context, clean)
+
+    assert result.report.ok
+    assert result.report.open_questions == ()
+    assert not sandbox.path(CASE_DIR, "open-questions.md").exists()
+    assert [write["path"] for write in result.writes] == [
+        f"{CASE_DIR}/briefing.md",
+        f"{CASE_DIR}/decisions.md",
+    ]
+
+
+def test_a_clean_run_does_not_ask_the_drafter_for_open_questions(sandbox: Sandbox) -> None:
+    clean = FakeLLM(severity="medium", position="in-appetite", invents=False)
+
+    orchestrator.run_risk_assessment(CASE, sandbox.context, clean)
+
+    _, prompt = clean.calls[-1]
+    assert "### Cross-validation" not in prompt
+    assert "End with the open questions" not in prompt
+
+
+def test_a_run_with_open_questions_still_asks_for_them(sandbox: Sandbox, fake_llm: FakeLLM) -> None:
+    orchestrator.run_risk_assessment(CASE, sandbox.context, fake_llm)
+
+    _, prompt = fake_llm.calls[-1]
+    assert "### Cross-validation" in prompt
+    assert "End with the open questions" in prompt
+
+
 def test_the_run_writes_nothing_the_write_tool_did_not_write(
     run: orchestrator.RunResult, sandbox: Sandbox
 ) -> None:

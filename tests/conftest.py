@@ -18,7 +18,12 @@ and indexes it offline. The stand-ins both fixtures use are in tests/fakes.py.
 
 from __future__ import annotations
 
+import io
 import shutil
+import subprocess
+import tarfile
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -190,26 +195,58 @@ def tool_context(corpus: tuple[tuple[str, Path], ...], tmp_path: Path) -> ToolCo
     return _wire(corpus, tmp_path / "index", tmp_path / "traces")
 
 
+@pytest.fixture(scope="session")
+def committed() -> Iterator[Path]:
+    """The wiki and raw trees as they are committed, unpacked once.
+
+    Not the working tree: a rehearsal writes a draft into briefing.md, creates
+    a decisions.md and promotes a lesson, and a test suite that read the wiki
+    afterwards would be testing the last run rather than the demo. The demo has
+    demo.py reset for that; the tests take the committed state directly and are
+    green whether or not anyone remembered to run it.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        archive = subprocess.run(
+            ["git", "archive", "--format=tar", "HEAD", "wiki", "raw"],
+            cwd=layout.REPO_ROOT,
+            capture_output=True,
+            check=True,
+        ).stdout
+        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+            tar.extractall(root, filter="data")
+        yield root
+
+
 @pytest.fixture
-def sandbox(tmp_path: Path) -> Sandbox:
-    """The real wiki, copied so a run can write to it, indexed offline.
+def sandbox(tmp_path: Path, committed: Path) -> Sandbox:
+    """The demo wiki, copied so a run can write to it, indexed offline.
 
     The agent tests need the wiki the demo runs on - its cascade, its cases,
     its vocabulary - but a run writes to briefing.md and decisions.md, and a
     test that edits the repo's own wiki is a test that ruins the next one.
     Vectors come from the hash backend, so this stays offline; retrieval
     ranking is meaningless here, provenance is not.
+
+    rebuild() is the sandbox's ingest/rebuild.sh: the demo's last beat promotes
+    a lesson and regenerates the indexes from the markdown, and a test of that
+    beat has to be able to do the same thing without a network or a shell.
     """
     root = tmp_path / "demo"
-    shutil.copytree(layout.WIKI_DIR, root / "wiki")
-    shutil.copytree(layout.RAW_DIR, root / "raw")
+    shutil.copytree(committed / "wiki", root / "wiki")
+    shutil.copytree(committed / "raw", root / "raw")
     corpus = (("wiki", root / "wiki"), ("raw", root / "raw"))
-    context = _wire(corpus, tmp_path / "index", tmp_path / "traces")
+    index_dir = tmp_path / "index"
+    context = _wire(corpus, index_dir, tmp_path / "traces")
 
     documents, chunks = parse_corpus(corpus)
     graph = build_graph(documents)
     ids = {chunk.chunk_id for chunk in chunks} | {node.node_id for node in graph.nodes}
-    return Sandbox(context=context, ids=frozenset(ids))
+    return Sandbox(
+        context=context,
+        ids=frozenset(ids),
+        rebuild=lambda: _index(corpus, index_dir),
+    )
 
 
 @pytest.fixture
@@ -220,16 +257,19 @@ def fake_llm() -> FakeLLM:
 
 def _wire(corpus: tuple[tuple[str, Path], ...], index_dir: Path, traces_dir: Path) -> ToolContext:
     """Build the indexes for a corpus and wire the tools over them."""
-    documents, chunks = parse_corpus(corpus)
-    vector_db = index_dir / "vectors" / "chunks.db"
-    graph_db = index_dir / "graph" / "graph.db"
-    build_vector_index(chunks, hash_embed, vector_db)
-    write_graph(build_graph(documents), graph_db)
+    _index(corpus, index_dir)
     return ToolContext(
-        vectors=SqliteVectorStore(vector_db),
-        graph=SqliteGraphStore(graph_db),
+        vectors=SqliteVectorStore(index_dir / "vectors" / "chunks.db"),
+        graph=SqliteGraphStore(index_dir / "graph" / "graph.db"),
         embed=hash_embed,
         count_tokens=count_words,
         wiki_dir=corpus[0][1],
         traces_dir=traces_dir,
     )
+
+
+def _index(corpus: tuple[tuple[str, Path], ...], index_dir: Path) -> None:
+    """Regenerate both indexes from whatever the markdown says now."""
+    documents, chunks = parse_corpus(corpus)
+    build_vector_index(chunks, hash_embed, index_dir / "vectors" / "chunks.db")
+    write_graph(build_graph(documents), index_dir / "graph" / "graph.db")

@@ -92,7 +92,11 @@ FORMAT = (
     '{{"findings": [{{"claim": "one sentence", "citations": ["<id>"]}}], '
     '"{label}": "{options}"}}\n'
     "Every citation is a chunk id or an entity id copied exactly from the "
-    "retrieved context. A claim you cannot cite does not go in."
+    "retrieved context. A claim you cannot cite does not go in.\n"
+    "Cite only ids that appear verbatim in the retrieved context above - "
+    "nothing else. Do not adapt an id, complete one from a pattern, or carry "
+    "one over from your own knowledge. A claim whose id is not on the page is "
+    "a claim you leave out."
 )
 
 
