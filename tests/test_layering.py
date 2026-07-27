@@ -1,9 +1,15 @@
-"""The rule that makes the store swappable: only stores/ knows the engine.
+"""The rules that keep the swappable parts swappable, checked rather than trusted.
 
-If a module outside the storage package opens an index itself, the protocols
-stop being the boundary they are documented to be, and moving the graph onto a
-different engine stops being a one-package change. This is cheap to check, so
-it is checked rather than trusted.
+Three boundaries, each one a promise the architecture makes:
+
+  the engine    only stores/ opens an index, so moving the graph onto another
+                engine is a one-package change
+  the provider  only agents/llm.py imports the model SDK, so the provider is
+                invisible to everything that calls complete() and embed()
+  the framework only agents/graph.py imports the graph framework, so the
+                specialist and orchestrator logic stays plain typed Python
+
+All three are cheap to check and expensive to discover broken.
 """
 
 from __future__ import annotations
@@ -16,6 +22,12 @@ from stores import GraphStore, SqliteGraphStore, SqliteVectorStore, VectorStore
 
 # Names that only the storage package may import.
 ENGINE_MODULES = {"sqlite3", "sqlite_vec"}
+
+# Names that only one file in the repo may import.
+PROVIDER_MODULES = {"openai"}
+FRAMEWORK_MODULES = {"langgraph"}
+PROVIDER_FILE = "agents/llm.py"
+FRAMEWORK_FILE = "agents/graph.py"
 
 STORE_PACKAGE = "stores"
 SEARCHED = ("agents", "ingest", "mcp_server", "stores", "tests")
@@ -44,6 +56,15 @@ def sources() -> list[Path]:
     return sorted([*packaged, *layout.REPO_ROOT.glob("*.py")])
 
 
+def _files_importing(modules: set[str]) -> list[str]:
+    """Every file in the repo that imports one of these top-level modules."""
+    return sorted(
+        path.relative_to(layout.REPO_ROOT).as_posix()
+        for path in sources()
+        if imports(path) & modules
+    )
+
+
 def test_the_repo_has_python_to_check() -> None:
     assert len(sources()) > 10
 
@@ -58,6 +79,16 @@ def test_only_the_storage_package_imports_the_database_engine() -> None:
     )
 
     assert offenders == [STORE_PACKAGE]
+
+
+def test_only_the_llm_module_imports_the_provider_sdk() -> None:
+    """Who serves the completions is one file's business and nobody else's."""
+    assert _files_importing(PROVIDER_MODULES) == [PROVIDER_FILE]
+
+
+def test_only_the_graph_module_imports_the_orchestration_framework() -> None:
+    """The specialists and the orchestrator read as plain functions, and stay that way."""
+    assert _files_importing(FRAMEWORK_MODULES) == [FRAMEWORK_FILE]
 
 
 def test_the_storage_package_does_not_depend_on_the_server() -> None:
