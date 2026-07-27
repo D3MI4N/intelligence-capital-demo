@@ -20,11 +20,16 @@ def test_doc_ids_are_source_prefixed_paths_in_order(corpus: Roots) -> None:
 
     assert [document.doc_id for document in documents] == [
         "wiki/AGENTS.md",
+        "wiki/claims/AGENTS.md",
+        "wiki/claims/CLM-9999-001/AGENTS.md",
+        "wiki/claims/CLM-9999-001/briefing.md",
+        "wiki/claims/CLM-9999-001/decisions.md",
         "wiki/claims/CLM-9999-001/index.md",
         "wiki/claims/CLM-9999-001/lessons.md",
         "wiki/claims/CLM-9999-001/sources/note.md",
         "wiki/platform-ic/skills/precedent.md",
         "wiki/submissions/SUB-9999-001/index.md",
+        "wiki/vocabulary/perils.md",
         "raw/testco-survey.md",
     ]
 

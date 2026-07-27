@@ -1,4 +1,8 @@
-"""Where the primary store lives and where the derived indexes are written."""
+"""Where the primary store lives, and where everything derived from it goes.
+
+The wiki and raw trees are the inputs. Everything else named here is output -
+disposable, gitignored, and rebuilt or re-accumulated from scratch.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,8 @@ DOCUMENTS_PATH = INDEX_DIR / "documents.json"
 CHUNKS_PATH = INDEX_DIR / "chunks.json"
 VECTOR_DB_PATH = INDEX_DIR / "vectors" / "chunks.db"
 GRAPH_DB_PATH = INDEX_DIR / "graph" / "graph.db"
+
+TRACES_DIR = REPO_ROOT / "traces"
 
 
 def source_roots() -> tuple[tuple[str, Path], ...]:

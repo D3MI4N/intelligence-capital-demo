@@ -2,10 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from ingest.embed import build_vector_index, connect, search
+from ingest.embed import build_vector_index
 from ingest.hash_embedder import DIMENSION, hash_embed
 from ingest.models import Chunk
 from ingest.parse import parse_corpus
+from stores import SqliteVectorStore, connect
 
 Roots = tuple[tuple[str, Path], ...]
 
@@ -38,7 +39,7 @@ def test_search_returns_the_nearest_chunk_and_its_text(corpus: Roots, tmp_path: 
     chunks, db_path = build(corpus, tmp_path)
     target = chunks[0]
 
-    results = search(hash_embed([target.text])[0], k=3, db_path=db_path)
+    results = SqliteVectorStore(db_path).search(hash_embed([target.text])[0], k=3)
 
     assert len(results) == 3
     best, score = results[0]
@@ -52,7 +53,7 @@ def test_search_returns_the_nearest_chunk_and_its_text(corpus: Roots, tmp_path: 
 def test_results_are_ranked_best_first(corpus: Roots, tmp_path: Path) -> None:
     chunks, db_path = build(corpus, tmp_path)
 
-    results = search(hash_embed([chunks[0].text])[0], k=5, db_path=db_path)
+    results = SqliteVectorStore(db_path).search(hash_embed([chunks[0].text])[0], k=5)
     scores = [score for _, score in results]
 
     assert scores == sorted(scores, reverse=True)
