@@ -127,6 +127,31 @@ is a decision and not an agent step. It is still written through the tool, with
 the same guardrails and the same trace line: agents never touch storage, and
 nothing else in the repo does either.
 
+**The ceremony runs behind an approval gate, and the gate opens after the
+reading.** A write into platform-ic is the strictest human gate in the
+architecture - it is the one write that changes retrieval for cases nobody has
+opened yet - so beat five puts the drafted lesson on screen, waits for the
+presenter, and only then writes. A gate that is cleared before the room has read
+what it approves is a gate in the ordering only. --no-pause skips the wait the
+same way it skips the ones between beats: that flag is for rehearsing alone, and
+it is not the demo.
+
+**The lesson text here is scripted; the gate is what generalises.** The demo
+carries L-002 as a constant because beat five rebuilds the indexes and the
+recorded embeddings have to match the corpus that comes out, down to the
+sentence. In production the case-close agent drafts that text from the case and
+a human approves it at this same gate - the drafting seat moves, the gate does
+not.
+
+**The gate is approve-or-stop, with no edit path.** Offering "edit the lesson
+first" would put the human back in the drafting seat at the moment they are
+being asked for a decision, and it would mean the text that gets promoted is one
+no agent proposed and no draft trace explains. Approve and the ceremony runs as
+shown; stop and nothing is written, the lesson stays a candidate in the case
+wiki, and the human edits the markdown there - which is the write path beat four
+already demonstrates. Keeping the gate binary keeps it auditable: the trace
+records a promotion or it records nothing.
+
 **The compounding is proved on the graph, not on the search.** A search with a
 fixed top_k returns the same number of hits before and after a promotion, so a
 demo that counted search results would show 5 -> 5 and claim compounding. The

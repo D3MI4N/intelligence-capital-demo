@@ -15,7 +15,7 @@ The five beats, in order:
     2 RETRIEVE    three specialists in parallel, every tool call echoed
     3 WRITE BACK  validate, compose, write through the tool, show the diff
     4 HITL        a human edit, picked up by the next read
-    5 COMPOUND    close the case, promote the lesson, rebuild, ask again
+    5 COMPOUND    read the lesson, approve the promotion, rebuild, ask again
 
 --replay answers every completion and every embedding from traces/ and makes
 no network call, so a rehearsal cannot be sunk by a client's guest wifi. It
@@ -110,9 +110,12 @@ CLAIMS = {
     5: (
         "COMPOUND",
         (
-            "The case closes. Its lesson is promoted into the platform layer, the indexes "
-            "are rebuilt from the markdown with one command, and the precedent query from "
-            "beat two comes back with one more result than it did."
+            "The case closes. A write into platform-ic changes what every future case in "
+            "the class retrieves, which makes it the strictest human gate in the "
+            "architecture: the lesson goes on screen first and is approved after it has "
+            "been read, never before. Once approved, the indexes are rebuilt from the "
+            "markdown with one command, and the precedent query from beat two comes back "
+            "with one more result than it did."
         ),
     ),
 }
@@ -332,20 +335,41 @@ def beat_compound(
     stamp: str,
     tail: TraceTail,
     rebuild: RebuildFn,
+    lesson: case_close.Lesson = case_close.VENDOR_ACCESS,
 ) -> None:
-    """Beat five: close the case, promote the lesson, rebuild, ask again."""
+    """Beat five: read the lesson, approve the promotion, rebuild, ask again.
+
+    The order is the point. The draft is on screen before anything is written,
+    the approval is a keypress the presenter has to make, and only then does the
+    ceremony run - a gate that opens before the room has read what it is
+    approving is not a gate.
+    """
     stage.beat(5, *CLAIMS[5])
     stage.step("the beat 2 precedent query, before the case closes")
     tail.take()
     before = case_close.precedent_query(context, orientation.risk_class)
     echo(stage, tail.take())
 
+    stage.step(f"drafted lesson {lesson.lesson_id} - nothing written yet")
+    stage.markdown(lesson.platform_body, title=lesson.platform_path())
+    stage.human(
+        "platform-ic is the strictest gate in the architecture: this write changes what "
+        f"every future {orientation.risk_class} case retrieves"
+    )
+    stage.note("approve or stop - there is no edit here, the wiki is where a human writes")
+    stage.pause(f"approve {lesson.lesson_id} and promote")
+
     stage.step("case close - the human act, through the same write tool an agent uses")
     promotion = case_close.close_case(
-        context, orientation.case_id, orientation.case_dir, orientation.risk_class, stamp
+        context,
+        orientation.case_id,
+        orientation.case_dir,
+        orientation.risk_class,
+        stamp,
+        lesson,
     )
     echo(stage, tail.take())
-    stage.markdown(promotion.lesson.platform_body, title=promotion.lesson.platform_path())
+    stage.note(f"promoted {promotion.lesson.lesson_id} -> {promotion.lesson.platform_path()}")
 
     rebuild(stage)
 

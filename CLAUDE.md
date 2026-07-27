@@ -18,8 +18,9 @@ demo.py must run these five beats end to end:
 3. WRITE BACK: draft assessment written to briefing.md and decisions.md, every
    claim citing chunk IDs and entity IDs.
 4. HITL: a human edit made in any markdown file is picked up on the next run.
-5. COMPOUND: case close promotes lessons.md to platform-ic/, indexes rebuild,
-   the same precedent query returns one more result than before.
+5. COMPOUND: the drafted lesson is shown, a human approves the promotion at the
+   platform-ic gate, case close promotes lessons.md to platform-ic/, indexes
+   rebuild, the same precedent query returns one more result than before.
 
 --replay flag runs all five beats from cached traces with zero network calls.
 
@@ -83,6 +84,16 @@ Rehearsal protocol:
 
 A replayed run writes the date of the run it replays, so the rebuild in beat 5
 produces the corpus the recordings came from.
+
+Recording protocol: at beat 4 of a run that is going to be blessed, do not type
+the edit. Press enter at the "edit applied" pause and let the demo apply
+fixtures/hitl-edit.md through hitl.apply_fixture, which is exactly what a
+replayed run does. Beat 5 rebuilds every index from the markdown that edit
+landed in, so a typed sentence would embed text no recording covers and the
+replay would miss on every changed chunk. Applying the fixture keeps the live
+run and the replayed run byte-identical. The demo warns on a typed edit for the
+same reason. At beat 5, --no-pause skips the approval gate, so a recording run
+made unattended still records the same completions.
 
 The presenting machine need not be the recording machine. traces/ is gitignored
 and local; fixtures/recording/ is committed, and reset --replay installs it into
