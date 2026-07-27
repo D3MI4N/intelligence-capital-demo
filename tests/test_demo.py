@@ -27,6 +27,8 @@ CASE = "SUB-2025-007"
 CASE_DIR = "wiki/submissions/SUB-2025-007"
 STAMP = "2025-04-01"
 PLATFORM_PATH = "wiki/platform-ic/engagement-lessons/vendor-access-cyber-logistics.md"
+BEAT_FIVE = "BEAT 5 - COMPOUND"
+DRAFTED = "Price the concentration"  # a line only the drafted lesson carries
 
 
 @pytest.fixture
@@ -41,7 +43,29 @@ def stage(screen: StringIO) -> Stage:
 
 
 @pytest.fixture
-def five_beats(stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM) -> str:
+def paused_stage(screen: StringIO) -> Stage:
+    """The stage as the presenter drives it: a keypress between the beats."""
+    return Stage(console=Console(file=screen, width=240, highlight=False), paused=True)
+
+
+@pytest.fixture
+def keypresses(monkeypatch: pytest.MonkeyPatch, screen: StringIO) -> list[tuple[str, str]]:
+    """Every pause the presenter had to clear, with what was on screen at the time.
+
+    Patching the console's input rather than overriding Stage.pause keeps the
+    --no-pause branch under test: a stage that is not paused never gets here.
+    """
+    pressed: list[tuple[str, str]] = []
+
+    def press(_console: Console, prompt: object = "", **_: object) -> str:
+        pressed.append((str(prompt), screen.getvalue()))
+        return ""
+
+    monkeypatch.setattr(Console, "input", press)
+    return pressed
+
+
+def _beats(stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM) -> str:
     """Run all five beats over the sandbox wiki and return what was printed."""
     demo.beats(
         stage,
@@ -55,6 +79,11 @@ def five_beats(stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM) -> str:
     file = stage.console.file
     assert isinstance(file, StringIO)
     return file.getvalue()
+
+
+@pytest.fixture
+def five_beats(stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM) -> str:
+    return _beats(stage, sandbox, fake_llm)
 
 
 def test_the_five_beats_run_in_order(five_beats: str) -> None:
@@ -143,6 +172,38 @@ def test_beat_five_closes_the_case_and_the_query_returns_one_more_result(
     assert sandbox.exists(PLATFORM_PATH)
     assert f"new: Lesson:{VENDOR_ACCESS.lesson_id}" in five_beats
     assert "results: " in five_beats
+
+
+def test_beat_five_shows_the_drafted_lesson_before_it_writes_anything(five_beats: str) -> None:
+    """The gate opens after the reading, so the reading has to come first."""
+    beat = five_beats.split(BEAT_FIVE)[1]
+
+    assert beat.index(DRAFTED) < beat.index("propose_wiki_update")
+    assert "nothing written yet" in beat
+    assert "strictest gate" in beat
+
+
+def test_the_promotion_gate_waits_for_approval_with_the_lesson_on_screen(
+    keypresses: list[tuple[str, str]], paused_stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM
+) -> None:
+    _beats(paused_stage, sandbox, fake_llm)
+
+    gates = [press for press in keypresses if VENDOR_ACCESS.lesson_id in press[0]]
+    assert len(gates) == 1
+    prompt, seen = gates[0]
+    assert "approve" in prompt
+    approved = seen.split(BEAT_FIVE)[1]
+    assert DRAFTED in approved
+    assert "propose_wiki_update" not in approved
+
+
+def test_no_pause_runs_the_gate_unattended(
+    keypresses: list[tuple[str, str]], five_beats: str, sandbox: Sandbox
+) -> None:
+    """--no-pause is for rehearsing alone: nothing waits, the promotion still happens."""
+    assert keypresses == []
+    assert DRAFTED in five_beats.split(BEAT_FIVE)[1]
+    assert sandbox.exists(PLATFORM_PATH)
 
 
 def test_the_run_asks_the_model_four_times_and_no_more(five_beats: str, fake_llm: FakeLLM) -> None:
