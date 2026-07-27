@@ -97,6 +97,87 @@ contradiction to fire the validator. Replay mode is the opposite tool, real
 recorded completions for the live walkthrough. Same seam, two purposes,
 zero network in tests either way.
 
+## The demo driver
+
+**demo.py is the Main Orchestrator's stand-in, and only its stand-in.** It
+receives the task, hands it to the Risk Assessment orchestrator, and does the
+two things the platform reserves for a human: accepting an edit, and closing a
+case. Everything between those is the agent layer running unmodified, which is
+the point - a driver that reached inside the run to make the demo prettier
+would be demonstrating the driver.
+
+**The beats are streamed out of the compiled graph, not reassembled from the
+step functions.** The presenter pauses between beats, and a call that only
+returns when it is over cannot be paused. graph.py gained one function that
+yields each node's result as it lands; the state schema, the nodes and the
+edges are untouched, and the three specialists still fan out in parallel on
+stage rather than in a story about the stage.
+
+**The demo echoes the trace, not the agents.** Every tool call on screen is
+read back from traces/ after the beat that made it, with the arguments the
+trace recorded and the order restored from the tool's own signature. Two
+things follow: the demo cannot show a call that was not traced, and what the
+room sees is exactly what an auditor would read the next morning. Retrieval
+scores were added to the search trace for this - a retrieval audit that cannot
+say how close the cited chunk was is missing the number that matters.
+
+**Case close is a ceremony, performed by demo.py, through propose_wiki_update.**
+Promoting a lesson changes what every future case in the class retrieves, so it
+is a decision and not an agent step. It is still written through the tool, with
+the same guardrails and the same trace line: agents never touch storage, and
+nothing else in the repo does either.
+
+**The compounding is proved on the graph, not on the search.** A search with a
+fixed top_k returns the same number of hits before and after a promotion, so a
+demo that counted search results would show 5 -> 5 and claim compounding. The
+new lesson hangs off the risk class instead: the case's own lessons.md carries
+L-002, the rebuild derives Case -> has_lesson -> Lesson from it, and the
+precedent traversal from RiskClass:cyber-logistics comes back with one more
+entity than before. Nobody points the next submission at the promoted file; the
+graph does. The demo reports both counts so the room can see which one moved.
+
+**A replayed run writes the date of the run it replays.** Beat 5 rebuilds every
+index from the markdown, and the markdown by then contains the records beat 3
+wrote, dated. A replay that dated its own records today would chunk to text the
+recorded embeddings never saw, and the rebuild would miss on every changed
+chunk. So a live run records its date next to its completions, and a replay
+reads it back. Replaying a run means replaying all of it.
+
+**Embeddings record and replay exactly like completions.** Every search embeds
+its query and every rebuild embeds the corpus, so replay without them was
+replay that still needed the network at two of the five beats. Same shape:
+keyed by model and text, newest recording wins, a miss names the text and
+refuses rather than inventing a vector. Keyed per text rather than per batch,
+so a rebuild that groups the corpus differently still resolves.
+
+**The human edit is scripted in replay, and the screen says so.** Live, the
+presenter types it in Obsidian. Replayed, it comes from a checked-in fixture,
+because the rebuild in beat 5 has to produce the corpus the embeddings were
+recorded from and a sentence typed twice is not the same sentence. Either way
+it is a direct file write: the wiki rules say direct writes are for humans, and
+this beat is the one where a human writes. The trace records that the demo
+applied it, marked scripted or typed.
+
+## Carry-overs from the first live run
+
+**Ask before stripping.** The strip that removes an id the agent was not given
+stays exactly as it was, but the specialists and the drafter are now told to
+cite only ids that appear verbatim in what they were handed. The guardrail is
+what makes the demo safe to show; asking first is what makes it rarely fire.
+
+**Normalisation happens once, at the write-back boundary, and is counted.** The
+model returns non-breaking hyphens and em dashes that look identical on screen
+and break a grep for an identifier. They are rewritten into house style on the
+way into the wiki - not in the specialists, not in the tool, at the one point
+where composed text becomes a write - and the number of characters replaced
+goes on the trace line. A silent cleanup is a cleanup nobody can audit.
+
+**No open-questions section when there are no open questions.** The drafter
+used to be handed an empty cross-validation block and asked to end with the
+open questions; it dutifully wrote a paragraph explaining there were none. An
+empty heading is an invitation to fill it, so when the validator comes back
+clean the section and the instruction are both left out.
+
 ## Protocol positioning
 
 **MCP in, A2A out, deliberately.** The two solve different problems. MCP is
