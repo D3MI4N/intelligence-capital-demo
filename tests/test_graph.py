@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from ingest.entities import Edge, Graph
-from ingest.graph import build_graph, read_graph, write_graph
+from ingest.graph import build_graph
 from ingest.parse import parse_corpus
+from stores import SqliteGraphStore, read_graph, write_graph
 
 Roots = tuple[tuple[str, Path], ...]
 
@@ -138,29 +139,12 @@ def test_graph_round_trips_through_the_store(corpus: Roots, tmp_path: Path) -> N
 
 
 def test_the_store_is_traversable_over_two_hops(corpus: Roots, tmp_path: Path) -> None:
-    import sqlite3
-
     db_path = tmp_path / "graph.db"
     write_graph(graph_of(corpus), db_path)
-    connection = sqlite3.connect(db_path)
-    try:
-        rows = connection.execute(
-            """
-            with recursive reachable(node_id, hops) as (
-                select ?, 0
-                union
-                select edges.dst, reachable.hops + 1
-                from edges join reachable on edges.src = reachable.node_id
-                where reachable.hops < 2
-            )
-            select distinct node_id from reachable order by node_id
-            """,
-            ("Case:SUB-9999-001",),
-        ).fetchall()
-    finally:
-        connection.close()
 
-    assert "Lesson:L-900" in {str(row[0]) for row in rows}
+    subgraph = SqliteGraphStore(db_path).traverse(["Case:SUB-9999-001"], depth=2)
+
+    assert "Lesson:L-900" in {node.node_id for node in subgraph.nodes}
 
 
 def test_edges_are_deduplicated_per_source_document(corpus: Roots) -> None:

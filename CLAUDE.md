@@ -49,7 +49,10 @@ demo.py must run these five beats end to end:
     wiki/          the living wiki (cases, vocabulary, platform-ic)
     raw/           sample domain documents, immutable, read-only
     ingest/        chunking, embedding, graph build; rebuild.sh regenerates all
+    stores/        VectorStore and GraphStore protocols, traversal, the
+                   embedded implementation; the only importer of the engine
     mcp_server/    the four MCP tools
+    errors.py      the refusal vocabulary, shared by stores/ and mcp_server/
     agents/        graph.py (orchestration shell), specialists as pure functions,
                    context assembly, token counter
     traces/        JSONL traces, gitignored

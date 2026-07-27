@@ -5,22 +5,19 @@ deliberately - a frontmatter field, a wikilink, an identifier like CY-EX-04, or
 a source note locator line. That is what makes the graph reproducible and what
 lets an agent cite an entity ID as evidence.
 
-Store choice: SQLite, the same embedded engine as the vector index. Nodes and
-edges are two tables in one file under .index/; multi-hop traversal is a
-recursive CTE over edges, so the graph is queryable without a graph service,
-and the whole thing is deleted and rebuilt by one command.
+This module derives the graph and hands it to the store to persist. Where the
+nodes and edges are kept, and how they are walked, is the store's business -
+see stores/stores.py.
 """
 
 from __future__ import annotations
 
-import json
-import sqlite3
 from collections.abc import Sequence
-from pathlib import Path
 
-from ingest import entities, layout, parse
+from ingest import entities, parse
 from ingest.entities import Edge, Graph, Node
 from ingest.models import Document
+from stores import write_graph
 
 CASE_ATTRIBUTES = ("type", "status", "class", "insured", "opened", "closed")
 PERIL_FIELDS = ("peril", "peril_focus", "perils")
@@ -261,69 +258,6 @@ def _values(frontmatter: dict[str, object], fields: Sequence[str]) -> tuple[str,
         elif isinstance(value, list):
             found.extend(item.strip() for item in value if isinstance(item, str) and item.strip())
     return tuple(dict.fromkeys(found))
-
-
-def write_graph(graph: Graph, db_path: Path = layout.GRAPH_DB_PATH) -> None:
-    """Persist the graph, replacing whatever was there."""
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    db_path.unlink(missing_ok=True)
-    connection = sqlite3.connect(db_path)
-    try:
-        connection.execute(
-            """
-            create table nodes (
-                node_id text primary key,
-                type    text not null,
-                label   text not null,
-                attrs   text not null
-            )
-            """
-        )
-        connection.execute(
-            """
-            create table edges (
-                src        text not null,
-                rel        text not null,
-                dst        text not null,
-                source_doc text not null,
-                primary key (src, rel, dst, source_doc)
-            )
-            """
-        )
-        connection.execute("create index nodes_type on nodes(type)")
-        connection.execute("create index edges_src on edges(src)")
-        connection.execute("create index edges_dst on edges(dst)")
-        connection.executemany(
-            "insert into nodes values (?, ?, ?, ?)",
-            [
-                (node.node_id, node.type, node.label, json.dumps(node.attrs, sort_keys=True))
-                for node in graph.nodes
-            ],
-        )
-        connection.executemany(
-            "insert into edges values (?, ?, ?, ?)",
-            [(edge.src, edge.rel, edge.dst, edge.source_doc) for edge in graph.edges],
-        )
-        connection.commit()
-    finally:
-        connection.close()
-
-
-def read_graph(db_path: Path = layout.GRAPH_DB_PATH) -> Graph:
-    """Read the persisted graph back, in the order it was written."""
-    connection = sqlite3.connect(db_path)
-    try:
-        nodes = tuple(
-            Node(node_id=str(row[0]), type=str(row[1]), label=str(row[2]), attrs=json.loads(row[3]))
-            for row in connection.execute("select * from nodes order by type, node_id")
-        )
-        edges = tuple(
-            Edge(src=str(row[0]), rel=str(row[1]), dst=str(row[2]), source_doc=str(row[3]))
-            for row in connection.execute("select * from edges order by src, rel, dst, source_doc")
-        )
-    finally:
-        connection.close()
-    return Graph(nodes=nodes, edges=edges)
 
 
 def main() -> None:

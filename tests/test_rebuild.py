@@ -9,11 +9,12 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from ingest.embed import build_vector_index, connect
+from ingest.embed import build_vector_index
 from ingest.entities import Graph
-from ingest.graph import build_graph, read_graph, write_graph
+from ingest.graph import build_graph
 from ingest.hash_embedder import hash_embed
 from ingest.parse import parse_corpus, read_documents, write_records
+from stores import connect, read_graph, write_graph
 
 Roots = tuple[tuple[str, Path], ...]
 
