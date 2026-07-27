@@ -17,6 +17,7 @@ import pytest
 from rich.console import Console
 
 import demo
+import recording
 from agents import llm
 from case_close import VENDOR_ACCESS
 from stage import Stage
@@ -167,13 +168,13 @@ def test_a_live_run_records_the_date_it_wrote_under(tmp_path: Path) -> None:
     stamp = demo.resolve_stamp(tmp_path, llm.LIVE, CASE)
 
     assert stamp == datetime.now(UTC).date().isoformat()
-    assert (tmp_path / demo.RUNS_FILE).is_file()
+    assert (tmp_path / recording.RUNS_FILE).is_file()
 
 
 def test_a_replayed_run_writes_the_date_of_the_run_it_replays(tmp_path: Path) -> None:
     """Otherwise beat five rebuilds a corpus the recorded embeddings never saw."""
     demo.resolve_stamp(tmp_path, llm.LIVE, CASE)
-    (tmp_path / demo.RUNS_FILE).write_text(
+    (tmp_path / recording.RUNS_FILE).write_text(
         '{"ts": "2025-04-01T09:00:00+00:00", "stamp": "2025-04-01", "case": "SUB-2025-007"}\n',
         encoding="utf-8",
     )

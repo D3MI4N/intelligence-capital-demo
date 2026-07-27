@@ -6,7 +6,8 @@ the way while that runs - then performs the two things the platform reserves
 for a human: accepting an edit, and closing a case.
 
     demo.py run [--case SUB-2025-007] [--replay] [--no-pause]
-    demo.py reset
+    demo.py reset [--replay]
+    demo.py bless
 
 The five beats, in order:
 
@@ -21,6 +22,11 @@ no network call, so a rehearsal cannot be sunk by a client's guest wifi. It
 also writes the date the run was recorded on rather than today's, because a
 replayed run that dated its own records differently would rebuild to a
 different corpus and miss the recordings it was replaying.
+
+Those recordings do not have to have been made here. demo.py bless compacts a
+good rehearsal into fixtures/recording/, which is committed, and reset --replay
+installs it into traces/ - so the machine that presents the demo and the
+machine that recorded it need not be the same machine. See recording.py.
 
 What the demo does not do is touch storage on an agent's behalf. Everything
 written here goes through propose_wiki_update, exactly as an agent's write
@@ -43,6 +49,7 @@ from typing import Any
 
 import case_close
 import hitl
+import recording
 from agents import graph, llm
 from agents.context import Orientation
 from agents.llm import CompleteFn
@@ -54,7 +61,6 @@ from stage import Stage
 from stores import read_graph
 
 DEFAULT_CASE = "SUB-2025-007"
-RUNS_FILE = "demo_runs.jsonl"
 TRACE_FILE = re.compile(r"^\d{4}-\d{2}-\d{2}\.jsonl$")
 
 BRIEFING = "briefing.md"
@@ -122,8 +128,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     running.add_argument("--no-pause", action="store_true", help="do not wait between beats")
     resetting = commands.add_parser("reset", help="restore the wiki and rebuild the indexes")
     resetting.add_argument("--replay", action="store_true", help="rebuild from recorded vectors")
+    commands.add_parser("bless", help="make the current traces the committed recording")
 
     arguments = parser.parse_args(argv)
+    if arguments.command == "bless":
+        return bless(Stage(paused=False))
     if arguments.command == "reset":
         return reset(Stage(paused=False), replay=bool(arguments.replay))
     return run(
@@ -388,16 +397,41 @@ def closing(
 def reset(stage: Stage, replay: bool = False) -> int:
     """Put the wiki back the way it is committed and rebuild every index.
 
-    --replay rebuilds from the recorded embeddings rather than the provider, so
-    the index a replayed rehearsal retrieves from is the index its recordings
-    were made against, vector for vector.
+    --replay installs the committed recording into traces/ and rebuilds from
+    its embeddings rather than from the provider, so the index a replayed
+    rehearsal retrieves from is the index its recordings were made against,
+    vector for vector - on any machine, including one that has never recorded
+    anything.
     """
     mode = llm.REPLAY if replay else llm.LIVE
     os.environ["LLM_MODE"] = mode
     stage.title("Reset", f" restore wiki/ from git, then rebuild the indexes - {mode} ")
     restore_wiki(stage)
+    if replay:
+        install_recording(stage)
     rebuild_indexes(stage)
     return 0
+
+
+def bless(stage: Stage) -> int:
+    """Make the traces of the rehearsal that just ran the recording the demo ships.
+
+    Run this after a live run that went the way it should. What lands in
+    fixtures/recording/ is committed, so the presenting machine needs nothing
+    but the repo.
+    """
+    stage.title("Bless", " compact traces/ into the committed recording ")
+    for written in recording.bless(layout.TRACES_DIR, recording.RECORDING_DIR):
+        stage.step(f"{written.name} - {written.kept:,} kept, {written.dropped:,} superseded")
+    stage.note(f"commit {_relative(recording.RECORDING_DIR)} - the recording travels with the repo")
+    return 0
+
+
+def install_recording(stage: Stage) -> None:
+    """Put the committed recording into traces/, where replay already looks."""
+    stage.step(f"install {_relative(recording.RECORDING_DIR)} -> {_relative(layout.TRACES_DIR)}")
+    for written in recording.install(recording.RECORDING_DIR, layout.TRACES_DIR):
+        stage.note(f"{written.kept:,} entries in {written.name}")
 
 
 def restore_wiki(stage: Stage, root: Path = layout.REPO_ROOT) -> None:
@@ -506,7 +540,7 @@ def resolve_stamp(traces_dir: Path, mode: str, case: str) -> str:
     run it is replaying: the wiki it rebuilds in beat five has to match the
     corpus the embeddings were recorded from, down to the dates in the headings.
     """
-    path = traces_dir / RUNS_FILE
+    path = traces_dir / recording.RUNS_FILE
     if mode == llm.REPLAY:
         recorded = _read_json_lines(path)
         if not recorded:
@@ -531,6 +565,13 @@ def added(before: str, after: str) -> str:
 def tokens_of(orientation: Orientation, path: str) -> int:
     """What one file of an orientation cost, or 0 if it was not there."""
     return next((file.tokens for file in orientation.files if file.path == path), 0)
+
+
+def _relative(path: Path) -> str:
+    """A repo path the way someone would type it. Anything else, in full."""
+    if not path.is_relative_to(layout.REPO_ROOT):
+        return str(path)
+    return path.relative_to(layout.REPO_ROOT).as_posix()
 
 
 def dirty_wiki() -> bool:

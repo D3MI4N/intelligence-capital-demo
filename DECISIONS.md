@@ -195,3 +195,43 @@ Assessment contract between agents already keeps that door open.
 
 **Flat layout, no src/ nesting.** The demo is small and flat reads better
 in a walkthrough. Depth gets added when the code demands it, not before.
+## The blessed recording
+
+**The recording the demo replays from is committed; traces/ stays gitignored.**
+The machine that presents the demo is not the machine that recorded it, and a
+replay that depends on a directory git never carried is a replay that only
+works on one laptop. So traces/ keeps its job - the live stream, everything the
+rehearsals on this machine wrote - and fixtures/recording/ holds the blessed
+copy that travels with the repo. Committing the vectors costs about a megabyte,
+which is the price of a walkthrough that cannot be sunk by a guest network or
+by presenting from a different machine.
+
+**Blessing is compaction, not copying.** demo.py bless takes the current traces
+and keeps the newest entry per key, dropping everything it superseded - the
+same rule replay resolution already applies when it reads the newest recording
+of a key. A rehearsal recorded over a week is mostly superseded entries; what
+gets committed is one run's worth. It refuses on an empty or missing file
+rather than blessing half a run, because a recording with no embeddings replays
+until the first search and then stops, in front of the client.
+
+**Compaction orders by newest entry, and that is load-bearing.** demo_runs.jsonl
+is read from the end - a replay writes the date of the run it replays - so
+installing the recording onto a machine whose own live runs are more recent has
+to leave the blessed run last. Keeping an entry in its original position would
+have left a later local run answering for a recording it has nothing to do with,
+and every changed chunk would miss.
+
+**Installing happens in reset --replay, so llm.py keeps one source.** The
+alternative was teaching the replay path a second location to look in, which
+would put a fallback in the one module the whole demo trusts to be offline.
+Instead the recording is installed into traces/ after the wiki restore and
+before the rebuild, and everything downstream is unchanged: agents/llm.py still
+reads one path and still takes the newest recording of a key. A live reset
+installs nothing, because live is how a recording gets made.
+
+**Installing merges rather than overwrites.** Whatever this machine recorded for
+keys the recording does not cover survives, the recording wins every key it does
+cover, and the file is compacted on the way in, so it does not grow by a whole
+run every reset. What is not blessed is the daily trace file: that is the audit
+stream a run produces, not something it consumes, and a replayed run writes its
+own.
