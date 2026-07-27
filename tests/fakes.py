@@ -11,6 +11,7 @@ retrieval returned.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,7 +29,8 @@ class Sandbox:
     """The demo wiki, copied and indexed, with everything an agent may cite."""
 
     context: ToolContext
-    ids: frozenset[str]  # every chunk id and entity id the index holds
+    ids: frozenset[str]  # every chunk id and entity id the index held when it was built
+    rebuild: Callable[[], None]  # regenerate both indexes from the sandbox markdown
 
     def written(self, case_dir: str, name: str) -> str:
         """Read back a case file the run wrote to."""
@@ -37,19 +39,30 @@ class Sandbox:
     def path(self, case_dir: str, name: str) -> Path:
         return self.context.wiki_dir.parent / case_dir / name
 
+    def exists(self, path: str) -> bool:
+        """True when a wiki path - wiki/platform-ic/... - is a file in the sandbox."""
+        return (self.context.wiki_dir.parent / path).is_file()
+
 
 class FakeLLM:
     """A deterministic model, grounded in the prompt it was handed.
 
     It cites ids it finds in the prompt and one it makes up. The invented id is
     the point: a run over this fake exercises the citation strip rather than
-    assuming it works.
+    assuming it works. invents=False turns that off, for the tests that need a
+    run where every claim is supported and cross-validation comes back clean.
     """
 
     INVENTED = "Case:INVENTED-000"
+    # A non-breaking hyphen and an em dash, the two the drafter is asked not to
+    # produce, so a run over this fake exercises the normalisation as well.
+    EXOTIC = "vendor\u2011operated systems \u2014 the loss path"
 
-    def __init__(self, severity: str = "high", position: str = "in-appetite") -> None:
+    def __init__(
+        self, severity: str = "high", position: str = "in-appetite", invents: bool = True
+    ) -> None:
         self.grades = {"severity": severity, "position": position}
+        self.invents = invents
         self.calls: list[tuple[str, str]] = []
 
     def __call__(self, system: str, prompt: str) -> str:
@@ -61,21 +74,23 @@ class FakeLLM:
 
     def draft(self, found: list[str]) -> str:
         supported = f" [{found[0]}]" if found else ""
-        return (
-            f"Assessment: the case matches the pattern already on file{supported}.\n\n"
-            f"Assessment: one point needs a human [{self.INVENTED}]."
-        )
+        opening = f"Assessment: {self.EXOTIC} matches the pattern already on file{supported}."
+        if not self.invents:
+            return opening
+        return f"{opening}\n\nAssessment: one point needs a human [{self.INVENTED}]."
 
     def assessment(self, found: list[str], prompt: str) -> str:
-        payload: dict[str, object] = {
-            "findings": [
-                {"claim": "Evidenced claim.", "citations": [*found[:2], self.INVENTED]},
+        findings: list[dict[str, object]] = [
+            {"claim": "Evidenced claim.", "citations": [*found[:2], self.INVENTED]}
+        ]
+        if self.invents:
+            findings.append(
                 {
                     "claim": f"Unsupported claim about {self.INVENTED}.",
                     "citations": [self.INVENTED],
-                },
-            ]
-        }
+                }
+            )
+        payload: dict[str, object] = {"findings": findings}
         for label, value in self.grades.items():
             if f'"{label}"' in prompt:
                 payload[label] = value

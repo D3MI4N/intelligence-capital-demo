@@ -54,10 +54,40 @@ demo.py must run these five beats end to end:
     mcp_server/    the four MCP tools
     errors.py      the refusal vocabulary, shared by stores/ and mcp_server/
     agents/        graph.py (orchestration shell), specialists as pure functions,
-                   context assembly, token counter
-    traces/        JSONL traces, gitignored
-    demo.py        runs the five beats
+                   context assembly, token counter, house-style normalisation
+    traces/        JSONL traces and the replay caches, gitignored
+    demo.py        runs the five beats, and resets the wiki between rehearsals
+    stage.py       the projector surface demo.py prints through
+    case_close.py  the case-close ceremony: promote a lesson to platform-ic/
+    hitl.py        the human edit, and the fixture a replayed run applies
+    recording.py   blessing a rehearsal into fixtures/recording, installing it
+    fixtures/      checked-in inputs a replayed run needs, recording/ included
     tests/         pytest, no network
+
+## Running the demo
+
+    demo.py reset            restore wiki/ from git, then rebuild every index
+    demo.py reset --replay   the same, plus install the recording, rebuilt from
+                             its vectors
+    demo.py run              the five beats, live, recording as it goes
+    demo.py run --replay     the same beats from traces/, no network call
+    demo.py bless            compact traces/ into fixtures/recording/
+
+Rehearsal protocol:
+
+    demo.py reset            # live: records an embedding per chunk
+    demo.py run              # live: records a completion per model call
+    demo.py bless            # that rehearsal becomes the committed recording
+    demo.py reset --replay   # the index its recordings were made against
+    demo.py run --replay     # as often as needed, offline
+
+A replayed run writes the date of the run it replays, so the rebuild in beat 5
+produces the corpus the recordings came from.
+
+The presenting machine need not be the recording machine. traces/ is gitignored
+and local; fixtures/recording/ is committed, and reset --replay installs it into
+traces/ before the rebuild, so replay resolution stays where it is and llm.py
+keeps its single source.
 
 ## Development workflow
 

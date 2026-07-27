@@ -52,6 +52,17 @@ def test_a_specialist_is_given_the_case_rules_and_the_retrieved_context(
     assert "## Retrieved chunks" in prompt
 
 
+def test_a_specialist_is_told_to_cite_only_what_is_on_the_page(
+    tool_context: ToolContext, oriented: Orientation, fake_llm: FakeLLM
+) -> None:
+    """The strip catches an invented id; asking first means fewer to catch."""
+    specialists.appetite_checker(tool_context, oriented, fake_llm)
+
+    _, prompt = fake_llm.calls[0]
+    assert "Cite only ids that appear verbatim in the retrieved context above" in prompt
+    assert "Do not adapt an id, complete one from a pattern" in prompt
+
+
 def test_the_exposure_analyst_grades_severity_from_the_published_values(
     tool_context: ToolContext, oriented: Orientation
 ) -> None:

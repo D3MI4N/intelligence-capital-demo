@@ -13,9 +13,10 @@ slower. START -> orient -> {three specialists} -> cross_validate -> write_back
 -> END, with the specialists' assessments accumulated into one list by the
 reducer on the state field.
 
-The context and the completion function are captured when the graph is built
-rather than carried in the state: they are wiring, not data, and keeping them
-out of the state keeps the state something you can print during the demo.
+The context, the completion function and the date the run writes under are
+captured when the graph is built rather than carried in the state: they are
+wiring, not data, and keeping them out of the state keeps the state something
+you can print during the demo.
 
 If the framework's types and mypy disagree, the accommodation stays in this
 file. Nothing else in the repo should ever have to know this file exists.
@@ -24,6 +25,7 @@ file. Nothing else in the repo should ever have to know this file exists.
 from __future__ import annotations
 
 import operator
+from collections.abc import Iterator
 from typing import Annotated, Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -77,7 +79,7 @@ class RunState(TypedDict, total=False):
     result: RunResult
 
 
-def build(context: ToolContext, complete: CompleteFn) -> Any:
+def build(context: ToolContext, complete: CompleteFn, stamp: str | None = None) -> Any:
     """Compile the risk assessment graph over one tool context and one model."""
     writer = TokenMeter(complete, context.count_tokens)
     graph = StateGraph(RunState)
@@ -100,6 +102,7 @@ def build(context: ToolContext, complete: CompleteFn) -> Any:
                 state["assessments"],
                 state["report"],
                 writer,
+                stamp,
             )
         }
 
@@ -123,10 +126,28 @@ def build(context: ToolContext, complete: CompleteFn) -> Any:
     return graph.compile()
 
 
-def run(context: ToolContext, complete: CompleteFn, case_path: str) -> RunResult:
+def run(
+    context: ToolContext, complete: CompleteFn, case_path: str, stamp: str | None = None
+) -> RunResult:
     """Run the compiled graph over one case and return what the run produced."""
-    final: RunState = build(context, complete).invoke({"case_path": case_path})
+    final: RunState = build(context, complete, stamp).invoke({"case_path": case_path})
     return final["result"]
+
+
+def stream(
+    context: ToolContext, complete: CompleteFn, case_path: str, stamp: str | None = None
+) -> Iterator[tuple[str, RunState]]:
+    """The same run, yielding (node name, what that node produced) as it goes.
+
+    The demo pauses between beats, and a presenter cannot pause a call that
+    only returns once it is over. Yielding per node is still wiring - the graph
+    decides what runs and when, this only hands back each result as it lands -
+    and it keeps the framework's streaming types on this side of the boundary.
+    """
+    compiled = build(context, complete, stamp)
+    for update in compiled.stream({"case_path": case_path}, stream_mode="updates"):
+        for node, produced in update.items():
+            yield str(node), produced
 
 
 def _bind(node: Any, specialist: SpecialistFn, meter: TokenMeter) -> Any:

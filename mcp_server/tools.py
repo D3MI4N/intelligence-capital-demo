@@ -67,7 +67,13 @@ def search_knowledge_base(
         context,
         SEARCH,
         args,
-        {"hits": len(hits), "chunk_ids": [hit["chunk_id"] for hit in hits]},
+        {
+            "hits": len(hits),
+            "chunk_ids": [hit["chunk_id"] for hit in hits],
+            # The ranking, not the payload: an audit of a retrieval wants to
+            # know how close the chunk that got cited actually was.
+            "scores": [hit["score"] for hit in hits],
+        },
     )
     return hits
 

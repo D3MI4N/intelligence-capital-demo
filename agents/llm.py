@@ -18,6 +18,11 @@ nothing leaves the machine; a key that is not there is an error naming the
 call, never a fabricated answer. The cache is the one file in traces/ that
 keeps payloads rather than a summary - a replay that only had counts to work
 from would have nothing to replay.
+
+Embeddings record and replay the same way, to traces/embeddings.jsonl, keyed by
+the model and the text. Retrieval embeds a query on every search and a rebuild
+embeds the whole corpus, so a replay that covered completions only would still
+reach the network in the middle of the walkthrough.
 """
 
 from __future__ import annotations
@@ -25,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -42,6 +47,7 @@ MODES = (LIVE, REPLAY)
 DEFAULT_MODE = LIVE
 
 CACHE_FILE = "llm_calls.jsonl"
+EMBED_CACHE_FILE = "embeddings.jsonl"
 
 # What a specialist is handed: a system prompt and a prompt, in that order.
 CompleteFn = Callable[[str, str], str]
@@ -70,18 +76,28 @@ def cache_file(traces_dir: Path = layout.TRACES_DIR) -> Path:
     return traces_dir / CACHE_FILE
 
 
+def embed_cache_file(traces_dir: Path = layout.TRACES_DIR) -> Path:
+    """Where recorded embeddings are kept for replay."""
+    return traces_dir / EMBED_CACHE_FILE
+
+
 def call_key(model: str, system: str, prompt: str) -> str:
     """A stable identifier for one completion request.
 
     Same model, same system prompt, same prompt -> same key on any machine and
     in any process, which is what makes a recorded run replayable.
     """
-    payload = json.dumps(
-        {"model": model, "system": system, "prompt": prompt},
-        ensure_ascii=False,
-        sort_keys=True,
-    )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return _key({"model": model, "system": system, "prompt": prompt})
+
+
+def embed_key(model: str, text: str) -> str:
+    """A stable identifier for one embedding request, one text at a time.
+
+    Keyed per text rather than per batch, so a rebuild that regroups the corpus
+    into different batches still replays: only the text and the model decide
+    the vector.
+    """
+    return _key({"model": model, "text": text})
 
 
 def complete(system: str, prompt: str, traces_dir: Path = layout.TRACES_DIR) -> str:
@@ -128,13 +144,59 @@ def record(key: str, model: str, system: str, prompt: str, response: str, path: 
         handle.write(json.dumps(line, ensure_ascii=False, sort_keys=True) + "\n")
 
 
-def embed(texts: list[str]) -> list[list[float]]:
+def embed(texts: list[str], traces_dir: Path = layout.TRACES_DIR) -> list[list[float]]:
     """Return one embedding vector per input text, in input order."""
     if not texts:
         return []
-    response = _client().embeddings.create(model=required_env("EMBED_MODEL"), input=texts)
-    ordered = sorted(response.data, key=lambda item: item.index)
-    return [list(item.embedding) for item in ordered]
+    model = required_env("EMBED_MODEL")
+    path = embed_cache_file(traces_dir)
+    if mode() == REPLAY:
+        recorded = recorded_embeddings(path)
+        return [replay_embedding(embed_key(model, text), recorded, path, text) for text in texts]
+    vectors = _live_embeddings(model, texts)
+    for text, vector in zip(texts, vectors):
+        record_embedding(embed_key(model, text), model, text, vector, path)
+    return vectors
+
+
+def replay_embedding(
+    key: str, recorded: Mapping[str, list[float]], path: Path, text: str = ""
+) -> list[float]:
+    """Answer one embedding from the recorded run, or refuse and say which text missed."""
+    vector = recorded.get(key)
+    if vector is not None:
+        return vector
+    opening = " ".join(text.split())[:80]
+    raise RuntimeError(
+        f"replay miss: no recorded embedding for key {key[:12]} in {path} - "
+        f"record it with a live run (LLM_MODE=live) before replaying. "
+        f"Text begins: {opening}"
+    )
+
+
+def recorded_embeddings(path: Path) -> dict[str, list[float]]:
+    """Every recorded vector by key, read once. The newest recording of a key wins."""
+    found: dict[str, list[float]] = {}
+    for line in _recorded(path):
+        key = line.get("key")
+        vector = line.get("vector")
+        if isinstance(key, str) and isinstance(vector, list):
+            found[key] = [float(value) for value in vector]
+    return found
+
+
+def record_embedding(key: str, model: str, text: str, vector: Sequence[float], path: Path) -> None:
+    """Append one embedding to the replay cache."""
+    line = {
+        "ts": datetime.now(UTC).isoformat(),
+        "key": key,
+        "model": model,
+        "text": text,
+        "vector": list(vector),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(line, ensure_ascii=False, sort_keys=True) + "\n")
 
 
 @lru_cache(maxsize=1)
@@ -158,6 +220,19 @@ def _live_completion(model: str, system: str, prompt: str) -> str:
         messages=messages,  # type: ignore[arg-type]
     )
     return response.choices[0].message.content or ""
+
+
+def _live_embeddings(model: str, texts: list[str]) -> list[list[float]]:
+    """One call to the provider, one vector per text, in input order."""
+    response = _client().embeddings.create(model=model, input=texts)
+    ordered = sorted(response.data, key=lambda item: item.index)
+    return [list(item.embedding) for item in ordered]
+
+
+def _key(payload: Mapping[str, str]) -> str:
+    """The hash both caches are keyed by."""
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _recorded(path: Path) -> list[dict[str, Any]]:
