@@ -10,20 +10,27 @@ The fixture wiki is small but complete: a three-level AGENTS.md cascade, a
 case with an index and a briefing, a second case with no briefing yet, an
 append-only decisions.md and a human-only vocabulary file. Those are what the
 MCP tools have rules about.
+
+The agent tests want the real wiki as well - the cascade the demo runs, the
+cases it cites - so the sandbox fixture copies it somewhere a run may write to
+and indexes it offline. The stand-ins both fixtures use are in tests/fakes.py.
 """
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
 
+from ingest import layout
 from ingest.embed import build_vector_index
 from ingest.graph import build_graph
 from ingest.hash_embedder import hash_embed
 from ingest.parse import parse_corpus
 from mcp_server.context import ToolContext
 from stores import SqliteGraphStore, SqliteVectorStore, write_graph
+from tests.fakes import FakeLLM, Sandbox, count_words
 
 FILES: dict[str, str] = {
     "wiki/AGENTS.md": """# Platform rules
@@ -177,16 +184,43 @@ def wiki(corpus: tuple[tuple[str, Path], ...]) -> Path:
     return corpus[0][1]
 
 
-def count_words(text: str) -> int:
-    """Stand-in token counter: offline, deterministic, obviously not exact."""
-    return len(text.split())
-
-
 @pytest.fixture
 def tool_context(corpus: tuple[tuple[str, Path], ...], tmp_path: Path) -> ToolContext:
     """The four tools wired to indexes built from the fixture wiki."""
+    return _wire(corpus, tmp_path / "index", tmp_path / "traces")
+
+
+@pytest.fixture
+def sandbox(tmp_path: Path) -> Sandbox:
+    """The real wiki, copied so a run can write to it, indexed offline.
+
+    The agent tests need the wiki the demo runs on - its cascade, its cases,
+    its vocabulary - but a run writes to briefing.md and decisions.md, and a
+    test that edits the repo's own wiki is a test that ruins the next one.
+    Vectors come from the hash backend, so this stays offline; retrieval
+    ranking is meaningless here, provenance is not.
+    """
+    root = tmp_path / "demo"
+    shutil.copytree(layout.WIKI_DIR, root / "wiki")
+    shutil.copytree(layout.RAW_DIR, root / "raw")
+    corpus = (("wiki", root / "wiki"), ("raw", root / "raw"))
+    context = _wire(corpus, tmp_path / "index", tmp_path / "traces")
+
     documents, chunks = parse_corpus(corpus)
-    index_dir = tmp_path / "index"
+    graph = build_graph(documents)
+    ids = {chunk.chunk_id for chunk in chunks} | {node.node_id for node in graph.nodes}
+    return Sandbox(context=context, ids=frozenset(ids))
+
+
+@pytest.fixture
+def fake_llm() -> FakeLLM:
+    """A model that answers the same way every time. See tests/fakes.py."""
+    return FakeLLM()
+
+
+def _wire(corpus: tuple[tuple[str, Path], ...], index_dir: Path, traces_dir: Path) -> ToolContext:
+    """Build the indexes for a corpus and wire the tools over them."""
+    documents, chunks = parse_corpus(corpus)
     vector_db = index_dir / "vectors" / "chunks.db"
     graph_db = index_dir / "graph" / "graph.db"
     build_vector_index(chunks, hash_embed, vector_db)
@@ -197,5 +231,5 @@ def tool_context(corpus: tuple[tuple[str, Path], ...], tmp_path: Path) -> ToolCo
         embed=hash_embed,
         count_tokens=count_words,
         wiki_dir=corpus[0][1],
-        traces_dir=tmp_path / "traces",
+        traces_dir=traces_dir,
     )

@@ -77,6 +77,9 @@ demo.py must run these five beats end to end:
   readable by a client engineer in one sitting.
 - llm.py is the only file that imports the LLM SDK. Everything else calls
   complete() and embed(). Model name comes from the LLM_MODEL env var.
+  LLM_MODE=live records every completion to traces/llm_calls.jsonl under a key
+  hashed from model + system + prompt; LLM_MODE=replay answers from that file
+  and makes no network call. That is what demo.py --replay runs on.
 - Config via environment only. .env is gitignored and never committed.
 - In all text output (docstrings, prompts, generated markdown): no em dashes,
   use "->" for arrows, use " - " as separator.
