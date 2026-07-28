@@ -232,6 +232,10 @@ which in this architecture is the seam between the main orchestrator and
 functional orchestrators if those ever become separately deployed services.
 One process, one graph, no such seam - wiring A2A into it would be protocol
 theater. The typed contracts between agents keep that door open.
+The same boundary rule covers reuse: an agent published beyond its own
+swarm - utility agents especially - carries an agent card in a registry
+and is discovered and consumed via A2A; nothing in this demo is published,
+which is why the protocol is out of scope here.
 
 **Why is the validator not another model call?** Because governance checks
 should say the same thing every time. The cross-validation is rule-based
