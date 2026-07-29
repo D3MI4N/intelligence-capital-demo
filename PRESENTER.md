@@ -138,7 +138,8 @@ Nothing else is typed during the demo. If anything ever looks wrong, the recover
 
 **On screen:** the final panel - 12 tool calls, 4 model calls, 12,759 tokens, 4 wiki writes.
 
-**Say:** **"Every number on this screen is auditable - the trace is append-only JSONL, and what you watched is literally a replay of it. One thread we left open deliberately: the assessment says refer, and resolving that is a human decision that would land as the next numbered record in `decisions.md`. The system drafts; people decide."**
+**Say:** **"Every number on this screen is auditable - the trace is append-only JSONL, and what you watched is literally a replay of it. 
+Notice the run does not end with a decision - it ends with a referral. The draft, the evidence, the broker's note are all in the wiki waiting for a senior underwriter, and when that person decides, their decision becomes the first numbered record in this case's decisions file. The agents got everything ready; the judgment stays human. That is not a limitation we hit - it is the design."**
 
 ## Questions you may get
 
