@@ -14,12 +14,14 @@ On the presenting machine, once:
     git clone <repo-url>
     cd intelligence-capital-demo
     uv sync
+    printf 'LLM_MODEL=gpt-5-mini\nEMBED_MODEL=text-embedding-3-small\n' > .env
     uv run python demo.py reset --replay
 
 What each command does, in plain words:
 - `git clone` copies the repo onto the machine.
 - `cd` steps into it.
 - `uv sync` installs the exact Python environment the demo was built with - pinned by the lockfile, nothing global touched.
+- the `printf` line writes a `.env` file with the two model names the replay uses to look up its recordings - no API key goes in this file.
 - `demo.py reset --replay` puts the wiki back to its opening state, installs the committed recording, and rebuilds the two indexes from the markdown.
 
 Expect it to end with: documents 33, chunks 35, graph nodes 46, graph edges 78. If those counts appear, the machine is ready.
