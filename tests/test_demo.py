@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from rich.console import Console
 
-import demo
+import intelligence_capital_demo as demo
 import recording
 from agents import llm
 from case_close import VENDOR_ACCESS

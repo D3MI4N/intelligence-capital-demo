@@ -1,13 +1,13 @@
 """The presenter's entry point: five beats, one keypress apart.
 
-demo.py stands in for the Main Orchestrator. It takes the task ("assess this
+intelligence_capital_demo.py stands in for the Main Orchestrator. It takes the task ("assess this
 submission"), hands it to the Risk Assessment orchestrator, and stays out of
 the way while that runs - then performs the two things the platform reserves
 for a human: accepting an edit, and closing a case.
 
-    demo.py run [--case SUB-2025-007] [--replay] [--no-pause]
-    demo.py reset [--replay]
-    demo.py bless
+    intelligence_capital_demo.py run [--case SUB-2025-007] [--replay] [--no-pause]
+    intelligence_capital_demo.py reset [--replay]
+    intelligence_capital_demo.py bless
 
 The five beats, in order:
 
@@ -23,7 +23,7 @@ also writes the date the run was recorded on rather than today's, because a
 replayed run that dated its own records differently would rebuild to a
 different corpus and miss the recordings it was replaying.
 
-Those recordings do not have to have been made here. demo.py bless compacts a
+Those recordings do not have to have been made here. intelligence_capital_demo.py bless compacts a
 good rehearsal into fixtures/recording/, which is committed, and reset --replay
 installs it into traces/ - so the machine that presents the demo and the
 machine that recorded it need not be the same machine. See recording.py.
@@ -123,7 +123,9 @@ CLAIMS = {
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse the command line and run what it asked for."""
-    parser = argparse.ArgumentParser(prog="demo.py", description="Run the living wiki demo.")
+    parser = argparse.ArgumentParser(
+        prog="intelligence_capital_demo.py", description="Run the living wiki demo."
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     running = commands.add_parser("run", help="run the five beats")
     running.add_argument("--case", default=DEFAULT_CASE, help="case id to assess")
@@ -159,7 +161,9 @@ def run(stage: Stage, case: str, replay: bool) -> int:
     if replay:
         stage.note("replay: every completion and embedding comes from traces/, no network call")
     if dirty_wiki():
-        stage.warn("wiki has uncommitted changes - demo.py reset gives a clean rehearsal")
+        stage.warn(
+            "wiki has uncommitted changes - intelligence_capital_demo.py reset gives a clean rehearsal"
+        )
 
     beats(stage, context, llm.complete, case, stamp, replay, rebuild_indexes)
     return 0
@@ -570,7 +574,7 @@ def resolve_stamp(traces_dir: Path, mode: str, case: str) -> str:
         if not recorded:
             raise RuntimeError(
                 f"nothing to replay: {path} holds no recorded run - "
-                "run demo.py run live once to record one"
+                "run intelligence_capital_demo.py run live once to record one"
             )
         return str(recorded[-1]["stamp"])
     stamp = datetime.now(UTC).date().isoformat()
