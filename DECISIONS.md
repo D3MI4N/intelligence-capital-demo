@@ -260,3 +260,57 @@ cover, and the file is compacted on the way in, so it does not grow by a whole
 run every reset. What is not blessed is the daily trace file: that is the audit
 stream a run produces, not something it consumes, and a replayed run writes its
 own.
+
+## The client review - 2026-08-05
+
+**The entry point is named after the thing it runs: intelligence_capital_demo.py.**
+"demo.py" is what a repo calls a script nobody has decided about yet, and it is
+the first line of the run on a projector. The rename costs one command and every
+reference in the manual, the README and the tests. demo.py stays as a two-line
+shim that names the new file and exits nonzero, because the presenter's fingers
+know the old name and a silent absence at the start of a walkthrough is worse
+than an error that says where to go.
+
+**"Beat" left the screen and kept its job in the code.** It is stage vocabulary
+- useful to whoever builds the run, meaningless to an underwriter reading a
+terminal - so the panels are titled for what they do and where they sit in the
+swarm flow the deck already shows: ORIENT is step 2, RETRIEVE is steps 3-5,
+WRITE BACK is steps 6-8, HUMAN IN THE LOOP is step 9, COMPOUND is where the case
+closes. The closing panel is DONE and carries no number at all, because "BEAT 0"
+was only ever a way of reusing the panel. Identifiers, function names and test
+names keep the word: renaming them would be churn in exchange for nothing, and a
+test asserts the room never sees it.
+
+**The census names the platform and breaks the graph down live.** Four rows that
+said documents, chunks, nodes, edges now say IC Wiki Documents, IC Embedding
+Chunks and IC Knowledge Graph, which is what they are called everywhere else the
+client meets them. Under the graph, the edges are split into the three kinds they
+actually are - relations between entities, references from a document to an
+entity, links from one file to another - counted off the graph store at the
+moment the table is printed, never written down. That is what makes the
+breakdown survive the rebuild at case close, where all three kinds grow: 28/42/8
+of 78 before, 37/54/14 of 105 after, and nobody has to remember to update a
+number. The third row is named for what it holds - wikilinks and the locator
+lines a source note carries back to its raw document - because the Obsidian vault
+graph draws the wikilinks among them, and the closing line of the demo makes that
+claim out loud.
+
+**The echoed call names the agent from the trace, not from the order.** The three
+specialists run in the same superstep and their calls land interleaved, so the
+call sitting in the second position on screen belongs to whichever agent got
+there second. The tools therefore record their caller: the context carries an
+optional agent name, and the trace line carries it as a field of its own rather
+than as another argument, so the arguments on the line stay the arguments of the
+call and a line written before the field existed still reads exactly as it did.
+Where a line names nobody, the echo falls back to the phase it was read in. What
+the room sees is what an auditor would read the next morning, which was already
+the rule - this only extends it to who asked.
+
+**A pasted note is the scripted edit.** The human edit was either applied from
+the fixture or typed, and typed meant a warning that the recordings no longer
+match. That left the presenter who wants the edit to visibly happen in Obsidian
+with no good option. So the edit is compared with the fixture, forgiving what an
+editor changes on its own - line endings, whitespace at the end of a line - and a
+match is recorded as the scripted edit, on the same trace line, with no warning.
+Anything else keeps the warning it always had, because it is the same fact it
+always was: a sentence the recordings have never seen.

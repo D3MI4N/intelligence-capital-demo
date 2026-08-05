@@ -9,19 +9,19 @@ The scenario is fictional end to end: a cyber-logistics insurance submission (SU
 The demo replays a blessed recording committed in this repo - every completion and embedding comes from the recording, zero network calls:
 
     uv sync
-    uv run python demo.py reset --replay
-    uv run python demo.py run --replay
+    uv run python intelligence_capital_demo.py reset --replay
+    uv run python intelligence_capital_demo.py run --replay
 
-The run streams five beats, pausing for a keypress between them: ORIENT (the orchestrator reads the case wiki, token cost on screen), RETRIEVE (three specialists in parallel through the MCP tools), WRITE BACK (a cited draft lands in the case files), HUMAN IN THE LOOP (a person edits markdown and the next read simply has it), COMPOUND (the case closes, its lesson is promoted behind a human gate, and the same precedent query returns one more result than before).
+The run streams five phases, pausing for a keypress between them: ORIENT (the orchestrator reads the case wiki, token cost on screen), RETRIEVE (three specialists in parallel through the MCP tools), WRITE BACK (a cited draft lands in the case files), HUMAN IN THE LOOP (a person edits markdown and the next read simply has it), COMPOUND (the case closes, its lesson is promoted behind a human gate, and the same precedent query returns one more result than before).
 
-Presenting it to a room? The run-of-show manual is [PRESENTER.md](PRESENTER.md): machine setup, screen choreography, what to say at each beat, and a crib for likely questions.
+Presenting it to a room? The run-of-show manual is [PRESENTER.md](PRESENTER.md): machine setup, screen choreography, what to say in each phase, and a crib for likely questions.
 
 ## Run it live
 
 Live mode generates fresh assessments instead of replaying:
 
-    uv run --env-file .env python demo.py reset
-    LLM_MODE=live uv run --env-file .env python demo.py run
+    uv run --env-file .env python intelligence_capital_demo.py reset
+    LLM_MODE=live uv run --env-file .env python intelligence_capital_demo.py run
 
 Requires a provider API key in `.env`. Model and mode come from the `LLM_MODEL` and `LLM_MODE` environment variables; the vendor SDK is confined to a single file by a layering test.
 
@@ -33,7 +33,10 @@ Requires a provider API key in `.env`. Model and mode come from the `LLM_MODEL` 
     stores/        vector and graph storage behind protocols
     mcp_server/    the four MCP tools agents use to reach knowledge
     agents/        the risk assessment swarm and its orchestration
-    demo.py        the five-beat driver: run, reset, bless (stage, hitl, case_close and recording modules sit alongside it)
+    intelligence_capital_demo.py
+                   the five-phase driver: run, reset, bless (stage, hitl, case_close
+                   and recording modules sit alongside it; demo.py is a shim that
+                   points at the new name)
     traces/        append-only JSONL audit stream (gitignored)
     fixtures/      the blessed recording and the scripted human edit
     tests/         quality gate - run with `make check`

@@ -15,16 +15,16 @@ On the presenting machine, once:
     cd intelligence-capital-demo
     uv sync
     printf 'LLM_MODEL=gpt-5-mini\nEMBED_MODEL=text-embedding-3-small\n' > .env
-    uv run python demo.py reset --replay
+    uv run python intelligence_capital_demo.py reset --replay
 
 What each command does, in plain words:
 - `git clone` copies the repo onto the machine.
 - `cd` steps into it.
 - `uv sync` installs the exact Python environment the demo was built with - pinned by the lockfile, nothing global touched.
 - the `printf` line writes a `.env` file with the two model names the replay uses to look up its recordings - no API key goes in this file.
-- `demo.py reset --replay` puts the wiki back to its opening state, installs the committed recording, and rebuilds the two indexes from the markdown.
+- `intelligence_capital_demo.py reset --replay` puts the wiki back to its opening state, installs the committed recording, and rebuilds the two indexes from the markdown.
 
-Expect it to end with: documents 33, chunks 35, graph nodes 46, graph edges 78. If those counts appear, the machine is ready.
+Expect it to end with: IC Wiki Documents 33, IC Embedding Chunks 35, IC Knowledge Graph nodes 46, edges 78 - and under the edges, the three kinds they split into (28 typed entity relations, 42 document to entity references, 8 file links). If those counts appear, the machine is ready.
 
 Screen setup: terminal left, Obsidian right, with wiki/ opened as a vault. Any terminal works - a plain terminal app full-height with the font enlarged is the cleanest stage; the VSCode integrated terminal is fine too if the sidebar is hidden and the terminal panel maximized, so the room sees the demo and not editor chrome. Rehearse at the projector's real resolution: the panels wrap to terminal width.
 
@@ -34,19 +34,20 @@ Rehearse the full run at least once on this machine. It costs nothing and takes 
 
 ## Running order
 
-    uv run python demo.py reset --replay
-    uv run python demo.py run --replay
+    uv run python intelligence_capital_demo.py reset --replay
+    uv run python intelligence_capital_demo.py run --replay
 
-The run pauses between beats; enter advances.
+The run pauses between phases; enter advances. The prompt names the phase that comes next.
 
 - `reset --replay` is the same command as in setup - it returns everything to the opening state.
-- `run --replay` streams the five beats from the recording, so no model is called and nothing is generated live.
+- `run --replay` streams the five phases from the recording, so no model is called and nothing is generated live.
+- the run header prints the case it was given - `case: SUB-2025-007 (selected via run --case <id>)` - so the parameter is visible in the log of every run.
 
-The rhythm of every beat is the same: let it render, speak, then press enter - enter is always the last thing done in a beat, never the first.
+The rhythm of every phase is the same: let it render, speak, then press enter - enter is always the last thing done, never the first.
 
-Nothing else is typed during the demo. If anything ever looks wrong, the recovery is always the same: `ctrl+C`, then `reset --replay`, then `run --replay` from the top.
+Nothing else is typed during the demo, with one optional exception in HUMAN IN THE LOOP, below. If anything ever looks wrong, the recovery is always the same: `ctrl+C`, then `reset --replay`, then `run --replay` from the top.
 
-## The opening (before beat 1)
+## The opening (before ORIENT)
 
 **Do:** Obsidian, graph view, ten seconds on screen.
 
@@ -54,15 +55,15 @@ Nothing else is typed during the demo. If anything ever looks wrong, the recover
 
 **Do:** switch to the terminal, start the run.
 
-## Beat 1 - Orient
+## ORIENT - step 2 of the swarm flow
 
 **On screen:** five file reads with a token count per file and a running total, ending at 645 tokens.
 
 **Say:** **"The orchestrator reads the rules before the case: platform rules, domain rules, case rules, each layer extending the last. Watch the right column - that is the entire bill for getting an agent situated, 645 tokens, before a single model call. And it stays bounded no matter how large the knowledge base grows, because orientation reads the cascade, not the corpus."**
 
-**Do:** press enter - beat 2 renders.
+**Do:** press enter - RETRIEVE renders.
 
-## Beat 2 - Retrieve
+## RETRIEVE - steps 3-5
 
 **On screen:** four tool calls in monospace with real arguments, ranked chunks with scores, entity subgraphs, then the specialists table. The call order can differ between runs - the three specialists genuinely run in parallel; membership and results are always the same.
 
@@ -76,9 +77,9 @@ Nothing else is typed during the demo. If anything ever looks wrong, the recover
 
 **Say:** **"And the merged context per specialist is one to two thousand tokens - bounded injection, not the whole wiki."**
 
-**Do:** press enter - beat 3 renders.
+**Do:** press enter - WRITE BACK renders.
 
-## Beat 3 - Write back
+## WRITE BACK - steps 6-8
 
 **On screen:** two writes through `propose_wiki_update`, a normalisation note, the composed draft, the briefing diff, and a dated record in `decisions.md`.
 
@@ -92,13 +93,26 @@ Nothing else is typed during the demo. If anything ever looks wrong, the recover
 
 **Say:** **"The agent wrote a document, not a row in a database. A person can read it, follow its sources, and edit it."**
 
-**Do:** switch back to the terminal, press enter - beat 4 renders.
+**Do:** switch back to the terminal, press enter - HUMAN IN THE LOOP renders.
 
-## Beat 4 - Human in the loop
+## HUMAN IN THE LOOP - step 9
 
-**On screen:** the HITL panel, inviting a human to add a note to the briefing.
+**On screen:** the human-in-the-loop panel, inviting a human to add a note to the briefing.
 
-**Do:** type nothing, touch no files - press enter. The run applies the scripted note itself.
+**Do:** the safe option - type nothing, touch no files, press enter. The run applies the scripted note itself.
+
+**Do:** the live option, if the room should see the edit happen in Obsidian: switch to Obsidian, open `briefing.md`, paste the note below at the end of the file, save, switch back to the terminal, press enter. Paste it exactly - the demo compares what you saved against the fixture and treats a match as the scripted edit, so the run stays reproducible and no warning appears. Trailing spaces and line endings do not matter; a changed word does.
+
+    ## Underwriter note - HB - human edit
+
+    Broker call this morning: Baltra's WMS is operated by the same provider that
+    ran the system on [[submissions/SUB-2024-018/index|SUB-2024-018]], under a
+    support contract with standing out-of-hours remote access and no scheduled
+    control review. Same setup as NovaFreight pre-loss. Do not bind before
+    evidence of an access review. CY-EX-04 wording query sent to legal.
+    Written by hand in Obsidian - no import, no re-indexing, no agent.
+
+Either way the screen ends up in the same place. If a `! typed edit - re-record the traces` warning does appear, the paste did not match: nothing is broken and the demo continues, but that run is not one to bless as a recording.
 
 **On screen:** the underwriter's note from the fixture, marked as scripted, and the token counts moving.
 
@@ -112,9 +126,9 @@ Nothing else is typed during the demo. If anything ever looks wrong, the recover
 
 **Say:** **"Skills enter the wiki the same way - a person writes markdown, the platform inherits it."**
 
-**Do:** switch back to the terminal, press enter - beat 5 renders.
+**Do:** switch back to the terminal, press enter - COMPOUND renders.
 
-## Beat 5 - Compound
+## COMPOUND - the case closes
 
 **On screen:** the precedent query as it stood, then the drafted lesson L-002 with "nothing written yet", then an explicit approval pause.
 
@@ -144,6 +158,8 @@ Notice the run does not end with a decision - it ends with a referral. The draft
 ## Questions you may get
 
 **Where do the index numbers come from (33/35/46/78)?** They are the census of the derived indexes: 33 markdown files parsed, cut into 35 retrieval chunks (most files are single-chunk), one embedding per chunk, and a graph of 46 nodes and 78 edges built from the files, their declared entities, and their links. The counts are deterministic - same files, same numbers every rebuild - and the demo moves them live: after the case closes they read 36/41/50/105, and every delta is a file, chunk, node or edge you watched being created.
+
+**What are the three lines under the graph edges?** The same edges, split by what they connect, computed from the graph every time it is rebuilt. Typed entity relations are the vocabulary relating entities to each other - a case in a risk class, a case with a lesson. Document to entity references are the corpus pointing at what it talks about - this file belongs to that case, mentions that clause. File links are one file pointing at another: the wikilinks a person clicks, plus the locator lines a source note carries back to the raw document it was written from. The Obsidian vault graph on the other screen draws that last kind only - same markdown, two projections, which is the point of the last picture in the demo.
 
 **Why a terminal and not a UI?** The terminal is the engineering view: real tool calls, real arguments, nothing hidden. Underwriters would live in the wiki surface and their own tools. Any front-end binds to the same MCP contracts and the same trace stream you watched, which is why building one is additive, not a rewrite.
 
