@@ -4,6 +4,9 @@ The beats run here exactly as they run on the night, with two substitutions the
 demo already allows for: a deterministic model instead of the provider, and the
 sandbox's own rebuild instead of shelling out to ingest/rebuild.sh. Nothing
 reaches the network and nothing touches the repo's wiki.
+
+"beat" survives in the names of these tests and nowhere the room can see it -
+what the panels say is asserted here as the strings they have to be.
 """
 
 from __future__ import annotations
@@ -12,14 +15,19 @@ import subprocess
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
+from typing import Any
 
 import pytest
 from rich.console import Console
 
+import hitl
 import intelligence_capital_demo as demo
 import recording
 from agents import llm
 from case_close import VENDOR_ACCESS
+from ingest.entities import Edge, Graph, Node
+from ingest.graph import build_graph
+from ingest.parse import parse_corpus
 from stage import Stage
 from tests.fakes import FakeLLM, Sandbox
 
@@ -27,7 +35,7 @@ CASE = "SUB-2025-007"
 CASE_DIR = "wiki/submissions/SUB-2025-007"
 STAMP = "2025-04-01"
 PLATFORM_PATH = "wiki/platform-ic/engagement-lessons/vendor-access-cyber-logistics.md"
-BEAT_FIVE = "BEAT 5 - COMPOUND"
+COMPOUND = "COMPOUND - the case closes"
 DRAFTED = "Price the concentration"  # a line only the drafted lesson carries
 
 
@@ -87,18 +95,24 @@ def five_beats(stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM) -> str:
 
 
 def test_the_five_beats_run_in_order(five_beats: str) -> None:
+    """The panels are named for what they do and where they sit in the flow."""
     positions = [
-        five_beats.index(f"BEAT {number} - {name}")
-        for number, name in (
-            (1, "ORIENT"),
-            (2, "RETRIEVE"),
-            (3, "WRITE BACK"),
-            (4, "HITL"),
-            (5, "COMPOUND"),
+        five_beats.index(heading)
+        for heading in (
+            "ORIENT - step 2 of the swarm flow",
+            "RETRIEVE - steps 3-5",
+            "WRITE BACK - steps 6-8",
+            "HUMAN IN THE LOOP - step 9",
+            COMPOUND,
         )
     ]
 
     assert positions == sorted(positions)
+
+
+def test_nothing_on_screen_calls_a_phase_a_beat(five_beats: str) -> None:
+    """The word is retired in front of a client - it means nothing to them."""
+    assert "beat" not in five_beats.lower()
 
 
 def test_beat_one_shows_the_cascade_with_a_running_token_count(five_beats: str) -> None:
@@ -144,6 +158,32 @@ def test_beat_two_reports_what_came_back_and_what_it_cost(five_beats: str) -> No
     assert "merged GraphRAG block" in five_beats
 
 
+def test_every_echoed_call_is_prefixed_with_the_agent_the_trace_recorded(five_beats: str) -> None:
+    """Read off the trace line, never guessed: the three specialists interleave."""
+    assert "exposure_analyst -> search_knowledge_base(" in five_beats
+    assert "appetite_checker -> traverse_graph(" in five_beats
+    assert "precedent_finder -> search_knowledge_base(" in five_beats
+    assert "precedent_finder -> traverse_graph(" in five_beats
+    assert "risk_assessment_orchestrator -> propose_wiki_update(" in five_beats
+    assert "case_close -> propose_wiki_update(" in five_beats
+
+
+def test_a_trace_line_that_names_no_agent_is_echoed_under_the_step_it_came_from(
+    stage: Stage, screen: StringIO
+) -> None:
+    """A blessed trace recorded before the field still has to read as something."""
+    older: dict[str, Any] = {
+        "tool": "search_knowledge_base",
+        "status": "ok",
+        "args": {"query": "cyber", "top_k": 5, "path_prefix": None},
+        "result": {"chunk_ids": ["wiki/a.md#0"], "scores": [0.5]},
+    }
+
+    demo.echo(stage, [older], demo.SPECIALIST)
+
+    assert "specialist -> search_knowledge_base(" in screen.getvalue()
+
+
 def test_beat_three_writes_through_the_tool_and_shows_the_diff(
     five_beats: str, sandbox: Sandbox
 ) -> None:
@@ -157,7 +197,7 @@ def test_beat_three_writes_through_the_tool_and_shows_the_diff(
 def test_beat_three_says_when_it_normalised_the_model_output(five_beats: str) -> None:
     """The fake writes a non-breaking hyphen and an em dash. Both get reported."""
     assert "normalised into house style" in five_beats
-    assert "\u2011" not in five_beats.split("BEAT 4")[0].split("composed draft")[1]
+    assert "\u2011" not in five_beats.split("HUMAN IN THE LOOP")[0].split("composed draft")[1]
 
 
 def test_beat_four_applies_the_scripted_edit_and_says_so(five_beats: str, sandbox: Sandbox) -> None:
@@ -176,7 +216,7 @@ def test_beat_five_closes_the_case_and_the_query_returns_one_more_result(
 
 def test_beat_five_shows_the_drafted_lesson_before_it_writes_anything(five_beats: str) -> None:
     """The gate opens after the reading, so the reading has to come first."""
-    beat = five_beats.split(BEAT_FIVE)[1]
+    beat = five_beats.split(COMPOUND)[1]
 
     assert beat.index(DRAFTED) < beat.index("propose_wiki_update")
     assert "nothing written yet" in beat
@@ -192,7 +232,7 @@ def test_the_promotion_gate_waits_for_approval_with_the_lesson_on_screen(
     assert len(gates) == 1
     prompt, seen = gates[0]
     assert "approve" in prompt
-    approved = seen.split(BEAT_FIVE)[1]
+    approved = seen.split(COMPOUND)[1]
     assert DRAFTED in approved
     assert "propose_wiki_update" not in approved
 
@@ -202,13 +242,115 @@ def test_no_pause_runs_the_gate_unattended(
 ) -> None:
     """--no-pause is for rehearsing alone: nothing waits, the promotion still happens."""
     assert keypresses == []
-    assert DRAFTED in five_beats.split(BEAT_FIVE)[1]
+    assert DRAFTED in five_beats.split(COMPOUND)[1]
     assert sandbox.exists(PLATFORM_PATH)
 
 
 def test_the_run_asks_the_model_four_times_and_no_more(five_beats: str, fake_llm: FakeLLM) -> None:
     """Three specialists and one draft. The rest of the demo is deterministic."""
     assert len(fake_llm.calls) == 4
+
+
+def test_a_pasted_note_that_matches_the_fixture_draws_no_re_recording_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    screen: StringIO,
+    paused_stage: Stage,
+    sandbox: Sandbox,
+    fake_llm: FakeLLM,
+) -> None:
+    """The live option: paste the note into Obsidian, and it is the scripted edit."""
+    briefing = sandbox.path(CASE_DIR, "briefing.md")
+    pasted = hitl.FIXTURE.read_text(encoding="utf-8").strip()
+
+    def press(_console: Console, prompt: object = "", **_: object) -> str:
+        if "edit applied" in str(prompt):
+            # Trailing whitespace on every line, the way a paste arrives.
+            note = "\n".join(f"{line}  " for line in pasted.splitlines())
+            briefing.write_text(
+                f"{briefing.read_text(encoding='utf-8').rstrip()}\n\n{note}\n", encoding="utf-8"
+            )
+        return ""
+
+    monkeypatch.setattr(Console, "input", press)
+    demo.beats(
+        paused_stage,
+        sandbox.context,
+        fake_llm,
+        CASE,
+        STAMP,
+        replay=False,
+        rebuild=lambda _: sandbox.rebuild(),
+    )
+
+    shown = screen.getvalue()
+    assert "the scripted edit" in shown
+    assert "re-record" not in shown
+
+
+def test_a_note_the_recordings_have_never_seen_still_warns(
+    monkeypatch: pytest.MonkeyPatch,
+    screen: StringIO,
+    paused_stage: Stage,
+    sandbox: Sandbox,
+    fake_llm: FakeLLM,
+) -> None:
+    """One character away from the fixture is a sentence no recording covers."""
+    briefing = sandbox.path(CASE_DIR, "briefing.md")
+    typed = f"{hitl.FIXTURE.read_text(encoding='utf-8').strip()[:-1]}X"
+
+    def press(_console: Console, prompt: object = "", **_: object) -> str:
+        if "edit applied" in str(prompt):
+            briefing.write_text(
+                f"{briefing.read_text(encoding='utf-8').rstrip()}\n\n{typed}\n", encoding="utf-8"
+            )
+        return ""
+
+    monkeypatch.setattr(Console, "input", press)
+    demo.beats(
+        paused_stage,
+        sandbox.context,
+        fake_llm,
+        CASE,
+        STAMP,
+        replay=False,
+        rebuild=lambda _: sandbox.rebuild(),
+    )
+
+    assert "re-record" in screen.getvalue()
+
+
+def test_the_graph_census_puts_every_edge_in_exactly_one_kind() -> None:
+    """Three kinds, told apart by what sits at each end of the edge."""
+    nodes = (
+        Node("Document:wiki/a.md", "Document", "a"),
+        Node("Document:wiki/b.md", "Document", "b"),
+        Node("Case:SUB-1", "Case", "SUB-1"),
+        Node("RiskClass:cyber-logistics", "RiskClass", "cyber-logistics"),
+    )
+    edges = (
+        Edge("Document:wiki/a.md", "references", "Document:wiki/b.md", "wiki/a.md"),
+        Edge("Document:wiki/a.md", "belongs_to", "Case:SUB-1", "wiki/a.md"),
+        Edge("Case:SUB-1", "in_class", "RiskClass:cyber-logistics", "wiki/a.md"),
+    )
+
+    assert demo.edge_kinds(Graph(nodes=nodes, edges=edges)) == [
+        (demo.TYPED_RELATIONS, 1),
+        (demo.DOCUMENT_REFERENCES, 1),
+        (demo.FILE_LINKS, 1),
+    ]
+
+
+def test_the_graph_census_breakdown_sums_to_the_edges_it_breaks_down(
+    corpus: tuple[tuple[str, Path], ...],
+) -> None:
+    """Computed off the store, so it is still right after the rebuild at the close."""
+    documents, _ = parse_corpus(corpus)
+    knowledge_graph = build_graph(documents)
+
+    counted = demo.edge_kinds(knowledge_graph)
+
+    assert sum(count for _, count in counted) == len(knowledge_graph.edges)
+    assert len(knowledge_graph.edges) > 0
 
 
 def test_a_reset_puts_back_what_a_run_changed_and_removes_what_it_created(
@@ -268,7 +410,7 @@ def test_the_closing_summary_counts_this_run_and_not_the_rehearsal_before_it(
     five_beats: str,
 ) -> None:
     """One trace file per day - an hour-old rehearsal is not this run."""
-    summary = five_beats.split("BEAT 0 - DONE")[1]
+    summary = five_beats.split(" DONE ")[1]
 
     assert "model calls" in summary
     assert " 4" in summary.split("model calls")[1].splitlines()[0]
