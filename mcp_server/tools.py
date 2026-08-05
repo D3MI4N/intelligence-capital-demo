@@ -3,7 +3,8 @@
 Each is a plain function of its context and its arguments: no class to
 instantiate, no session to keep, no state between calls. They are the only
 route to storage - agents never open an index or a markdown file themselves -
-and every call, refused or served, leaves a trace line behind.
+and every call, refused or served, leaves a trace line behind, naming the agent
+that made it when the context it was given carries a name.
 
   search_knowledge_base  ranked chunks, each carrying the id and path a claim
                          must cite
@@ -246,7 +247,7 @@ def _relative(path: Path, wiki_dir: Path) -> str:
 def _trace(
     context: ToolContext, tool: str, args: Mapping[str, object], result: Mapping[str, object]
 ) -> None:
-    tracing.append(tool, args, result, tracing.OK, context.traces_dir)
+    tracing.append(tool, args, result, tracing.OK, context.traces_dir, context.agent)
 
 
 def _trace_error(
@@ -258,4 +259,5 @@ def _trace_error(
         {"error": str(error), "type": type(error).__name__},
         tracing.ERROR,
         context.traces_dir,
+        context.agent,
     )

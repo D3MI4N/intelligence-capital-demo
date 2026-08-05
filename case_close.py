@@ -27,11 +27,16 @@ from agents.specialists import DEPTH, PRECEDENT_QUERY, TOP_K
 from errors import WriteRefused
 from ingest import entities
 from mcp_server import tools, writes
-from mcp_server.context import ToolContext
+from mcp_server.context import ToolContext, as_agent
 from mcp_server.results import WriteResult
 
 LESSONS_FILE = "lessons.md"
 PLATFORM_DIR = "wiki/platform-ic/engagement-lessons"
+
+# Who the trace records for the ceremony's calls. Not an agent: the demo stands
+# in for the human here, and the trace should not read as though one of the
+# specialists promoted a lesson into the platform layer on its own.
+CEREMONY = "case_close"
 
 
 @dataclass(frozen=True)
@@ -152,11 +157,12 @@ def precedent_query(context: ToolContext, risk_class: str) -> Precedent:
     what beat five re-runs is what beat two ran and the comparison means
     something.
     """
+    caller = as_agent(context, CEREMONY)
     hits = tools.search_knowledge_base(
-        context, PRECEDENT_QUERY.format(risk_class=risk_class), top_k=TOP_K
+        caller, PRECEDENT_QUERY.format(risk_class=risk_class), top_k=TOP_K
     )
     subgraph = tools.traverse_graph(
-        context,
+        caller,
         entities.node_id(entities.RISK_CLASS, risk_class),
         [entities.IN_CLASS, entities.HAS_LESSON],
         depth=DEPTH,
@@ -212,7 +218,8 @@ def _write(context: ToolContext, path: str, page: Page) -> WriteResult:
     says exactly what the first one said, and replacing the section it owns is
     a smaller claim than rewriting the file around it.
     """
+    caller = as_agent(context, CEREMONY)
     try:
-        return tools.propose_wiki_update(context, path, writes.CREATE_FILE, page.text)
+        return tools.propose_wiki_update(caller, path, writes.CREATE_FILE, page.text)
     except WriteRefused:
-        return tools.propose_wiki_update(context, path, writes.REPLACE_SECTION, page.section)
+        return tools.propose_wiki_update(caller, path, writes.REPLACE_SECTION, page.section)

@@ -14,6 +14,10 @@ is the published vocabulary in wiki/vocabulary/entity-types.md. A traversal
 naming a relation the wiki does not define is refused by the tool, which is
 the point: agents reason in the language the wiki publishes, not their own.
 
+Each one calls the tools under its own name, so the trace line says who asked
+and the demo echoes the call behind the agent that made it rather than behind
+the step it happened in - the three run in parallel and their calls interleave.
+
 The last step of every specialist is the same, and it is the one that matters:
 any cited id that was not in what retrieval returned is dropped. An agent may
 cite only what it was given.
@@ -35,7 +39,7 @@ from agents.context import (
 from agents.llm import CompleteFn
 from ingest import entities
 from mcp_server import tools
-from mcp_server.context import ToolContext
+from mcp_server.context import ToolContext, as_agent
 from mcp_server.results import ChunkHit, SubgraphResult
 
 EXPOSURE = "exposure_analyst"
@@ -105,7 +109,9 @@ def exposure_analyst(
 ) -> Assessment:
     """What drives loss on this risk, from the corpus."""
     hits = tools.search_knowledge_base(
-        context, EXPOSURE_QUERY.format(risk_class=orientation.risk_class), top_k=TOP_K
+        as_agent(context, EXPOSURE),
+        EXPOSURE_QUERY.format(risk_class=orientation.risk_class),
+        top_k=TOP_K,
     )
     task = (
         f"Assess the exposure on {orientation.insured or 'this insured'}, risk class "
@@ -121,7 +127,10 @@ def appetite_checker(
     """Where this risk class sits against appetite, from the entity graph."""
     seed = entities.node_id(entities.RISK_CLASS, orientation.risk_class)
     subgraph = tools.traverse_graph(
-        context, seed, [entities.IN_CLASS, entities.APPLIES_TO_CLASS], depth=DEPTH
+        as_agent(context, APPETITE),
+        seed,
+        [entities.IN_CLASS, entities.APPLIES_TO_CLASS],
+        depth=DEPTH,
     )
     task = (
         f"State the appetite position for risk class {orientation.risk_class or 'unstated'}. "
@@ -135,12 +144,13 @@ def precedent_finder(
     context: ToolContext, orientation: Orientation, complete: CompleteFn
 ) -> Assessment:
     """What comparable cases already taught us, from both indexes merged."""
+    caller = as_agent(context, PRECEDENT)
     hits = tools.search_knowledge_base(
-        context, PRECEDENT_QUERY.format(risk_class=orientation.risk_class), top_k=TOP_K
+        caller, PRECEDENT_QUERY.format(risk_class=orientation.risk_class), top_k=TOP_K
     )
     seed = entities.node_id(entities.RISK_CLASS, orientation.risk_class)
     subgraph = tools.traverse_graph(
-        context, seed, [entities.IN_CLASS, entities.HAS_LESSON], depth=DEPTH
+        caller, seed, [entities.IN_CLASS, entities.HAS_LESSON], depth=DEPTH
     )
     task = (
         f"Find the precedent that bears on {orientation.case_id}. Name the comparable "

@@ -12,7 +12,7 @@ server.py is its only caller.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ingest import layout
@@ -23,7 +23,13 @@ from stores import GraphStore, SqliteGraphStore, SqliteVectorStore, VectorStore
 
 @dataclass(frozen=True)
 class ToolContext:
-    """The stores, the embedder, the tokenizer and the two directories."""
+    """The stores, the embedder, the tokenizer, the two directories, the caller.
+
+    agent is who is holding the context, and the tools put it on the trace line
+    of every call made through it. It is optional because the context is still
+    the wiring and not the caller: a test or a ceremony that names nobody
+    traces a call with no agent against it rather than an invented one.
+    """
 
     vectors: VectorStore
     graph: GraphStore
@@ -31,6 +37,16 @@ class ToolContext:
     count_tokens: TokenCounter
     wiki_dir: Path
     traces_dir: Path
+    agent: str | None = None
+
+
+def as_agent(context: ToolContext, agent: str) -> ToolContext:
+    """The same wiring, held by a named caller.
+
+    What an agent may do does not change with its name - the guardrails are in
+    the tools - so this only decides what the trace says about who called.
+    """
+    return replace(context, agent=agent)
 
 
 def default_context() -> ToolContext:
