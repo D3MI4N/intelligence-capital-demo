@@ -78,6 +78,45 @@ def test_a_typed_edit_reports_the_lines_the_human_added(sandbox: Sandbox) -> Non
     assert traces(sandbox)[-1]["result"]["scripted"] is False
 
 
+def test_a_pasted_note_that_matches_the_fixture_is_recorded_as_the_scripted_edit(
+    sandbox: Sandbox,
+) -> None:
+    """Pasting the note into Obsidian is how the scripted edit happens live."""
+    before = "# Briefing\n\nintake\n"
+    fixture = hitl.FIXTURE.read_text(encoding="utf-8").strip()
+    pasted = "\n".join(f"{line}  " for line in fixture.splitlines())
+
+    edit = hitl.human_edit(
+        f"{CASE_DIR}/briefing.md",
+        before,
+        f"{before}\n{pasted}\n",
+        sandbox.context.traces_dir,
+    )
+
+    assert edit.scripted
+    assert edit.section == fixture
+    line = traces(sandbox)[-1]
+    assert line["result"] == {"scripted": True, "chars": len(fixture)}
+    assert "hitl-edit.md" in str(line["args"]["source"])
+
+
+def test_a_note_one_character_from_the_fixture_is_a_typed_edit(sandbox: Sandbox) -> None:
+    """A sentence the recordings never saw, however close it looks."""
+    before = "# Briefing\n\nintake\n"
+    typed = f"{hitl.FIXTURE.read_text(encoding='utf-8').strip()[:-1]}X"
+
+    edit = hitl.human_edit(
+        f"{CASE_DIR}/briefing.md",
+        before,
+        f"{before}\n{typed}\n",
+        sandbox.context.traces_dir,
+    )
+
+    assert not edit.scripted
+    assert edit.section == typed
+    assert traces(sandbox)[-1]["result"]["scripted"] is False
+
+
 def test_reading_a_file_that_is_not_there_yet_is_empty_rather_than_an_error(
     tmp_path: Path,
 ) -> None:
