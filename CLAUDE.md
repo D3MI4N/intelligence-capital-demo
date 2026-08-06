@@ -8,7 +8,7 @@ consistent with the client deck this demo accompanies.
 
 ## Demo beats (acceptance criteria)
 
-demo.py must run these five beats end to end:
+intelligence_capital_demo.py must run these five beats end to end:
 
 1. ORIENT: orchestrator reads AGENTS.md cascade -> index.md -> briefing.md via
    direct file reads. Live token counter shown per read.
@@ -23,6 +23,12 @@ demo.py must run these five beats end to end:
    rebuild, the same precedent query returns one more result than before.
 
 --replay flag runs all five beats from cached traces with zero network calls.
+
+"Beat" is the internal name and stays in identifiers, tests and this file.
+Nothing the room can see uses it: the panels are titled "ORIENT - step 2 of
+the swarm flow", "RETRIEVE - steps 3-5", "WRITE BACK - steps 6-8", "HUMAN IN
+THE LOOP - step 9", "COMPOUND - the case closes", and the closing panel is
+"DONE". Terminal output, PRESENTER.md and README.md say phase or step.
 
 ## Architecture rules (non-negotiable)
 
@@ -57,8 +63,10 @@ demo.py must run these five beats end to end:
     agents/        graph.py (orchestration shell), specialists as pure functions,
                    context assembly, token counter, house-style normalisation
     traces/        JSONL traces and the replay caches, gitignored
-    demo.py        runs the five beats, and resets the wiki between rehearsals
-    stage.py       the projector surface demo.py prints through
+    intelligence_capital_demo.py
+                   runs the five beats, and resets the wiki between rehearsals;
+                   demo.py is a shim naming it, for stale muscle memory
+    stage.py       the projector surface the driver prints through
     case_close.py  the case-close ceremony: promote a lesson to platform-ic/
     hitl.py        the human edit, and the fixture a replayed run applies
     recording.py   blessing a rehearsal into fixtures/recording, installing it
@@ -67,20 +75,22 @@ demo.py must run these five beats end to end:
 
 ## Running the demo
 
-    demo.py reset            restore wiki/ from git, then rebuild every index
-    demo.py reset --replay   the same, plus install the recording, rebuilt from
-                             its vectors
-    demo.py run              the five beats, live, recording as it goes
-    demo.py run --replay     the same beats from traces/, no network call
-    demo.py bless            compact traces/ into fixtures/recording/
+    reset            restore wiki/ from git, then rebuild every index
+    reset --replay   the same, plus install the recording, rebuilt from its
+                     vectors
+    run              the five beats, live, recording as it goes
+    run --replay     the same beats from traces/, no network call
+    bless            compact traces/ into fixtures/recording/
+
+all as subcommands of intelligence_capital_demo.py.
 
 Rehearsal protocol:
 
-    demo.py reset            # live: records an embedding per chunk
-    demo.py run              # live: records a completion per model call
-    demo.py bless            # that rehearsal becomes the committed recording
-    demo.py reset --replay   # the index its recordings were made against
-    demo.py run --replay     # as often as needed, offline
+    reset            # live: records an embedding per chunk
+    run              # live: records a completion per model call
+    bless            # that rehearsal becomes the committed recording
+    reset --replay   # the index its recordings were made against
+    run --replay     # as often as needed, offline
 
 A replayed run writes the date of the run it replays, so the rebuild in beat 5
 produces the corpus the recordings came from.
@@ -120,7 +130,7 @@ keeps its single source.
   complete() and embed(). Model name comes from the LLM_MODEL env var.
   LLM_MODE=live records every completion to traces/llm_calls.jsonl under a key
   hashed from model + system + prompt; LLM_MODE=replay answers from that file
-  and makes no network call. That is what demo.py --replay runs on.
+  and makes no network call. That is what --replay runs on.
 - Config via environment only. .env is gitignored and never committed.
 - In all text output (docstrings, prompts, generated markdown): no em dashes,
   use "->" for arrows, use " - " as separator.

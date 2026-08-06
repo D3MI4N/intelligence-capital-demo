@@ -7,7 +7,7 @@ rehearsal gets blessed: its traces are compacted - newest entry per key wins,
 everything it superseded dropped - and written to fixtures/recording/, which is
 committed and travels with the repo.
 
-Installing works the other way. demo.py reset --replay copies the recording
+Installing works the other way. reset --replay copies the recording
 back into traces/ before the rebuild, so replay resolution stays exactly where
 it was: agents/llm.py still reads one path, still takes the newest recording of
 a key, and has learned nothing about any of this.
@@ -79,7 +79,7 @@ def bless(
     if empty:
         raise RuntimeError(
             f"nothing to bless: {', '.join(empty)} in {traces_dir} is empty or missing - "
-            "run demo.py reset and demo.py run live once, then bless that"
+            "run intelligence_capital_demo.py reset and then run, live, once - and bless that"
         )
     return [_compact_into(traces_dir / f.name, recording_dir / f.name, f, ()) for f in FILES]
 
@@ -97,7 +97,7 @@ def install(
     if missing:
         raise RuntimeError(
             f"no recording to install: {', '.join(missing)} is not in {recording_dir} - "
-            "record a live run and bless it with demo.py bless"
+            "record a live run and bless it with intelligence_capital_demo.py bless"
         )
     return [
         _compact_into(traces_dir / f.name, traces_dir / f.name, f, _read(recording_dir / f.name))

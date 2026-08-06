@@ -8,8 +8,16 @@ file write - not a tool call, and not something an agent could have done.
 Live, the presenter makes that edit themselves. In replay, a checked-in fixture
 stands in for them, because a rehearsal that depends on someone typing the same
 sentence twice is not a rehearsal: the same edit produces the same corpus, the
-same chunk texts and the same recorded embeddings when beat five rebuilds. The
-screen says which of the two happened, every time.
+same chunk texts and the same recorded embeddings when the last phase rebuilds.
+The screen says which of the two happened, every time.
+
+Which leaves the presenter who wants the edit to happen in Obsidian in front of
+the room, and pastes the note rather than composing one. That produces the
+fixture text, so it is the scripted edit and is recorded as one - the warning
+about re-recording is for an edit that says something the recordings have never
+seen, and comparing the two is cheaper than assuming. The comparison forgives
+what an editor changes on its own: line endings, and whitespace at the end of a
+line.
 """
 
 from __future__ import annotations
@@ -65,15 +73,26 @@ def apply_fixture(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
 
-    edit = Edit(path=f"{case_dir}/{name}", section=section, scripted=True)
-    tracing.append(
-        "demo.human_edit",
-        {"path": edit.path, "source": str(fixture.relative_to(layout.REPO_ROOT))},
-        {"scripted": True, "chars": len(section)},
-        tracing.OK,
-        traces_dir,
-    )
-    return edit
+    return _scripted(f"{case_dir}/{name}", section, fixture, traces_dir)
+
+
+def human_edit(
+    path: str, before: str, after: str, traces_dir: Path, fixture: Path = FIXTURE
+) -> Edit:
+    """Record the edit the presenter made in their own editor.
+
+    An edit that says what the fixture says is the scripted edit however it got
+    into the file - pasted from the manual is the way to make it happen in
+    Obsidian in front of the room - so it is recorded as scripted and draws no
+    warning. Anything else is a typed edit, and a run carrying one cannot be
+    blessed without re-recording: the rebuild would chunk a sentence no
+    recording covers.
+    """
+    section = "\n".join(_added(before, after)).strip()
+    scripted = fixture.read_text(encoding="utf-8").strip()
+    if _comparable(section) == _comparable(scripted):
+        return _scripted(path, scripted, fixture, traces_dir)
+    return typed_edit(path, before, after, traces_dir)
 
 
 def typed_edit(path: str, before: str, after: str, traces_dir: Path) -> Edit:
@@ -87,6 +106,24 @@ def typed_edit(path: str, before: str, after: str, traces_dir: Path) -> Edit:
         traces_dir,
     )
     return Edit(path=path, section=section, scripted=False)
+
+
+def _scripted(path: str, section: str, fixture: Path, traces_dir: Path) -> Edit:
+    """One trace line for the scripted edit, whoever put it in the file."""
+    tracing.append(
+        "demo.human_edit",
+        {"path": path, "source": str(fixture.relative_to(layout.REPO_ROOT))},
+        {"scripted": True, "chars": len(section)},
+        tracing.OK,
+        traces_dir,
+    )
+    return Edit(path=path, section=section, scripted=True)
+
+
+def _comparable(text: str) -> str:
+    """The text as an editor cannot help changing it: line endings and trailing space."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    return "\n".join(line.rstrip() for line in lines).strip()
 
 
 def _added(before: str, after: str) -> list[str]:

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-import demo
+import intelligence_capital_demo as demo
 import recording
 from agents import llm
 from ingest import layout
@@ -174,7 +174,7 @@ def test_installing_leaves_the_blessed_run_last_even_after_a_newer_local_run(
 
 
 def test_installing_without_a_recording_says_how_to_make_one(tmp_path: Path) -> None:
-    with pytest.raises(RuntimeError, match="demo.py bless"):
+    with pytest.raises(RuntimeError, match="intelligence_capital_demo.py bless"):
         recording.install(tmp_path / "recording", tmp_path / "traces")
 
 

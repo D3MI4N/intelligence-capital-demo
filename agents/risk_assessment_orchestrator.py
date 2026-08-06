@@ -3,9 +3,10 @@
 This is one functional orchestrator, not the Main Orchestrator. In the platform
 architecture the Main Orchestrator owns the case end to end - it decides which
 functional orchestrator runs, in what order, and when a human is asked. That is
-out of scope in this module and in this session; demo.py stands in for it when
-the five beats are wired up. What lives here is the single function "assess the
-risk on this case", and it is deliberately readable top to bottom:
+out of scope in this module and in this session; intelligence_capital_demo.py
+stands in for it when the run is wired up. What lives here is the single
+function "assess the risk on this case", and it is deliberately readable top to
+bottom:
 
     orient          the cascade read, direct, with the token cost on the record
     dispatch        the three specialists, each one tool call and one model call
@@ -44,7 +45,7 @@ from agents.text import normalise
 from agents.validate import ValidationReport, cross_validate, grade
 from errors import WriteRefused
 from mcp_server import tools, tracing, writes
-from mcp_server.context import ToolContext, default_context
+from mcp_server.context import ToolContext, as_agent, default_context
 from mcp_server.results import WriteResult
 from mcp_server.tokens import TokenCounter
 
@@ -379,11 +380,12 @@ def propose(context: ToolContext, orientation: Orientation, name: str, content: 
     which is the guarantee working as intended - the log only ever grows.
     """
     path = f"{orientation.case_dir}/{name}"
+    caller = as_agent(context, COMPOSER)
     try:
-        return tools.propose_wiki_update(context, path, writes.APPEND_SECTION, content)
+        return tools.propose_wiki_update(caller, path, writes.APPEND_SECTION, content)
     except WriteRefused:
         header = f"---\ncase_id: {orientation.case_id}\n---\n\n{HEADINGS[name]}\n\n"
-        return tools.propose_wiki_update(context, path, writes.CREATE_FILE, f"{header}{content}")
+        return tools.propose_wiki_update(caller, path, writes.CREATE_FILE, f"{header}{content}")
 
 
 def trace(

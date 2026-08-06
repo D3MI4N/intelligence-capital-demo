@@ -30,8 +30,16 @@ def append(
     result: Mapping[str, object],
     status: str = OK,
     traces_dir: Path = layout.TRACES_DIR,
+    agent: str | None = None,
 ) -> Path:
-    """Write one trace line and return the file it went to."""
+    """Write one trace line and return the file it went to.
+
+    agent names who made the call, and it is a field of the line rather than
+    one of the arguments: an audit asks who called a tool as well as with what,
+    and the arguments on the line have to stay the arguments of the call. A
+    caller that does not name itself leaves the field off, so a trace written
+    before the field existed reads exactly as it did.
+    """
     stamped = datetime.now(UTC)
     path = traces_dir / f"{stamped.date().isoformat()}.jsonl"
     line = {
@@ -41,6 +49,8 @@ def append(
         "args": dict(args),
         "result": dict(result),
     }
+    if agent:
+        line["agent"] = agent
     traces_dir.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, ensure_ascii=False, sort_keys=True) + "\n")

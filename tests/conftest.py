@@ -202,8 +202,8 @@ def committed() -> Iterator[Path]:
     Not the working tree: a rehearsal writes a draft into briefing.md, creates
     a decisions.md and promotes a lesson, and a test suite that read the wiki
     afterwards would be testing the last run rather than the demo. The demo has
-    demo.py reset for that; the tests take the committed state directly and are
-    green whether or not anyone remembered to run it.
+    intelligence_capital_demo.py reset for that; the tests take the committed
+    state directly and are green whether or not anyone remembered to run it.
     """
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
