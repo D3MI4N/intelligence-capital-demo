@@ -49,9 +49,9 @@ Nothing else is typed during the demo, with one optional exception in HUMAN IN T
 
 ## The opening (before ORIENT)
 
-**Do:** Obsidian, graph view, ten seconds on screen.
+**Do:** Obsidian, graph view on screen, file tree collapsed to the top-level folders; point at `submissions/` and `claims/` when the two domains come up.
 
-**Say:** **"This is the knowledge base. Not a database behind an API - a folder of markdown a person can read, edit and walk. Everything the agents know is in these files; everything else is derived from them and rebuilt with one command. Watch the terminal do exactly that."**
+**Say:** **"What you are looking at is the knowledge base: a cyber submission from a logistics and warehousing company, about to be assessed, and next to it the history it will be assessed against - a prior submission and the claim that submission produced. Notice the two folders: submissions and claims are different domains of the business, and this is one wiki holding both. Not a database behind an API - a folder of markdown a person can read, edit and walk. Everything the agents know is in these files; everything else is derived from them and rebuilt with one command. Watch the terminal do exactly that."**
 
 **Do:** switch to the terminal, start the run.
 
@@ -68,6 +68,10 @@ Nothing else is typed during the demo, with one optional exception in HUMAN IN T
 **On screen:** four tool calls in monospace with real arguments, ranked chunks with scores, entity subgraphs, then the specialists table. The call order can differ between runs - the three specialists genuinely run in parallel; membership and results are always the same.
 
 **Say:** **"Three specialists, dispatched in parallel. Every call you see is the real call, echoed from the audit trace. Search returns ranked chunks, each carrying the id a claim will have to cite; the graph traversal returns the entities and relations around the risk class. One specialist uses both and merges them - that is GraphRAG, semantic and structural retrieval combined."**
+
+**Do:** point at the first traversal's result line - the entity list.
+
+**Say:** **"Look at what one graph call returned: the live submission, a prior submission, and a claim - side by side in one answer. Submissions and claims are different domains, and nothing in these folders links them directly; the graph bridges them through the risk class, because those relationships are persisted at ingest, not joined at query time. This is the cross-domain bridge, and it is how the swarm finds the precedent."**
 
 **Do:** point at the Cited column.
 
@@ -154,6 +158,8 @@ Either way the screen ends up in the same place. If a `! typed edit - re-record 
 
 **Say:** **"Every number on this screen is auditable - the trace is append-only JSONL, and what you watched is literally a replay of it. 
 Notice the run does not end with a decision - it ends with a referral. The draft, the evidence, the broker's note are all in the wiki waiting for a senior underwriter, and when that person decides, their decision becomes the first numbered record in this case's decisions file. The agents got everything ready; the judgment stays human. That is not a limitation we hit - it is the design."**
+
+**Say** (optional - only if the room was counting arrows in Obsidian earlier): **"And on those arrows: the vault draws only the wikilinks between files. The reset panel showed the real census - seventy-eight stored facts at the open - and the graph the agents traverse is that one. Same markdown, two projections."**
 
 ## Questions you may get
 
