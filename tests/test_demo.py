@@ -265,9 +265,17 @@ def test_beat_five_shows_the_drafted_lesson_before_it_writes_anything(five_beats
     """The gate opens after the reading, so the reading has to come first."""
     beat = five_beats.split(COMPOUND)[1]
 
-    assert beat.index(DRAFTED) < beat.index("propose_wiki_update")
+    assert beat.index(DRAFTED) < beat.index("propose_wiki_kb_update")
     assert "nothing written yet" in beat
     assert "strictest gate" in beat
+
+
+def test_the_strictest_gate_is_argued_once_where_the_decision_is_taken(five_beats: str) -> None:
+    """The phase intro sets up the mechanics; the pause makes the case for the gate."""
+    beat = five_beats.split(COMPOUND)[1]
+
+    assert beat.count("strictest gate") == 1
+    assert beat.index("nothing written yet") < beat.index("strictest gate")
 
 
 def test_the_promotion_gate_waits_for_approval_with_the_lesson_on_screen(

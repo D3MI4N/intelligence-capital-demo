@@ -123,12 +123,11 @@ CLAIMS = {
     5: (
         "COMPOUND - the case closes",
         (
-            "The case closes. A write into platform-ic changes what every future case in "
-            "the class retrieves, which makes it the strictest human gate in the "
-            "architecture: the lesson goes on screen first and is approved after it has "
-            "been read, never before. Once approved, the indexes are rebuilt from the "
-            "markdown with one command, and the precedent query from RETRIEVE comes back "
-            "with one more result than it did."
+            "The case closes. The precedent query from RETRIEVE runs once as it stands, "
+            "then the drafted lesson goes on screen with nothing written yet. Promoting "
+            "it takes an explicit approval - one keypress, on a gate with no edit path "
+            "beside it. Only then are the indexes rebuilt from the markdown with one "
+            "command, and the same precedent query asked again, argument for argument."
         ),
     ),
 }
