@@ -103,10 +103,10 @@ def test_the_evidence_footer_links_files_and_leaves_entities_plain(
     """A chunk id opens the document it came from; a clause has nothing to open."""
     footer = _footer(sandbox)
 
-    assert re.search(r"\[wiki/[^\]]+\.md#c\d+\]\([^)]+\.md\)", footer)
+    assert re.search(r"\[[^\]]+\]\([^)]+\.md\)", footer)
     assert re.search(r"\bCase:[A-Z]", footer)
     assert "](Case:" not in footer
-    assert "#c" not in re.sub(r"\[[^\]]*\]", "", footer)  # no anchor in any target
+    assert "#c" not in footer  # no anchor in any target and none in any alias
 
 
 def test_every_evidence_link_targets_a_file_that_is_there(
@@ -117,9 +117,96 @@ def test_every_evidence_link_targets_a_file_that_is_there(
     targets = re.findall(r"\]\(([^)]+)\)", _footer(sandbox))
 
     assert targets
-    assert all(
-        (vault / target).is_file() or (vault.parent / target).is_file() for target in targets
+    assert all((vault / target).is_file() for target in targets)
+
+
+def test_the_footer_of_a_mixed_citation_set_reads_the_way_it_is_meant_to() -> None:
+    """The whole footer over one set: the vault linked, raw plain, each file once.
+
+    Written against the citation set rather than a run, because which chunks
+    retrieval ranks up is not what is under test here and the sandbox indexes
+    on a hash backend where it is arbitrary.
+    """
+    section = orchestrator.briefing_section(
+        "Assessment: a draft.",
+        frozenset(
+            {
+                "Case:CLM-2024-042",
+                "Document:wiki/platform-ic/domain-patterns/cyber-bi-logistics.md",
+                "wiki/platform-ic/domain-patterns/cyber-bi-logistics.md#c000",
+                "wiki/claims/CLM-2024-042/timeline.md#c000",
+                "wiki/claims/CLM-2024-042/timeline.md#c001",
+                "raw/clm042-fnol.md#c000",
+            }
+        ),
+        "2025-05-05",
     )
+
+    footer = next(line for line in section.splitlines() if line.startswith("Evidence: "))
+    assert footer == (
+        "Evidence: Case:CLM-2024-042 - raw/clm042-fnol.md#c000 - "
+        "[CLM-2024-042 timeline](claims/CLM-2024-042/timeline.md) - "
+        "[domain-patterns cyber-bi-logistics](platform-ic/domain-patterns/cyber-bi-logistics.md)"
+    )
+    assert section.endswith(
+        f"\n\nDrafted by the {orchestrator.COMPOSER}. "
+        "Not a decision - a human confirms or rejects it."
+    )
+
+
+def test_the_evidence_footer_stands_apart_from_the_line_that_qualifies_it(
+    run: orchestrator.RunResult, sandbox: Sandbox
+) -> None:
+    """Glued on, the caveat reads as the tail of the footer instead of its own paragraph."""
+    lines = sandbox.written(CASE_DIR, "briefing.md").splitlines()
+    footer = lines.index(_footer(sandbox))
+
+    assert lines[footer + 1] == ""
+    assert lines[footer + 2].startswith(f"Drafted by the {orchestrator.COMPOSER}.")
+
+
+@pytest.mark.parametrize(
+    ("citations", "entries"),
+    [
+        # A Document entity and a chunk of the same file are one entry.
+        (
+            {
+                "Document:wiki/claims/CLM-2024-042/briefing.md",
+                "wiki/claims/CLM-2024-042/briefing.md#c000",
+            },
+            ["[CLM-2024-042 briefing](claims/CLM-2024-042/briefing.md)"],
+        ),
+        # So are three chunks of one document read end to end.
+        (
+            {
+                "wiki/claims/CLM-2024-042/timeline.md#c000",
+                "wiki/claims/CLM-2024-042/timeline.md#c001",
+                "wiki/claims/CLM-2024-042/timeline.md#c002",
+            },
+            ["[CLM-2024-042 timeline](claims/CLM-2024-042/timeline.md)"],
+        ),
+        # Two files under one case are two entries.
+        (
+            {
+                "wiki/claims/CLM-2024-042/briefing.md#c000",
+                "wiki/claims/CLM-2024-042/timeline.md#c000",
+            },
+            [
+                "[CLM-2024-042 briefing](claims/CLM-2024-042/briefing.md)",
+                "[CLM-2024-042 timeline](claims/CLM-2024-042/timeline.md)",
+            ],
+        ),
+        # Nothing resolves to a file, so nothing collapses.
+        (
+            {"Case:SUB-2024-018", "Lesson:L-001", "raw/clm042-fnol.md#c000"},
+            ["Case:SUB-2024-018", "Lesson:L-001", "raw/clm042-fnol.md#c000"],
+        ),
+    ],
+)
+def test_the_footer_carries_each_file_once_however_often_it_was_cited(
+    citations: set[str], entries: list[str]
+) -> None:
+    assert orchestrator.evidence_entries(citations) == entries
 
 
 def test_the_citations_in_the_body_are_left_as_they_were(
@@ -136,25 +223,30 @@ def test_the_citations_in_the_body_are_left_as_they_were(
     ("citation", "rendered"),
     [
         (
-            "wiki/claims/CLM-2024-042/index.md#c000",
-            "[wiki/claims/CLM-2024-042/index.md#c000](claims/CLM-2024-042/index.md)",
+            "wiki/claims/CLM-2024-042/briefing.md#c000",
+            "[CLM-2024-042 briefing](claims/CLM-2024-042/briefing.md)",
+        ),
+        (
+            "wiki/submissions/SUB-2024-018/coverage-or-appetite.md#c003",
+            "[SUB-2024-018 coverage-or-appetite](submissions/SUB-2024-018/coverage-or-appetite.md)",
         ),
         (
             "Document:wiki/platform-ic/domain-patterns/cyber-bi-logistics.md",
             (
-                "[Document:wiki/platform-ic/domain-patterns/cyber-bi-logistics.md]"
+                "[domain-patterns cyber-bi-logistics]"
                 "(platform-ic/domain-patterns/cyber-bi-logistics.md)"
             ),
         ),
-        # raw/ is ingested but sits outside the vault, so its path stands as it is.
-        ("raw/clm042-fnol.md#c000", "[raw/clm042-fnol.md#c000](raw/clm042-fnol.md)"),
+        # raw/ is ingested but sits outside the vault, so its id stands as it is.
+        ("raw/clm042-fnol.md#c000", "raw/clm042-fnol.md#c000"),
+        ("Document:raw/clm042-fnol.md", "Document:raw/clm042-fnol.md"),
         ("Case:SUB-2024-018", "Case:SUB-2024-018"),
         ("Clause:CY-EX-04", "Clause:CY-EX-04"),
         ("Lesson:L-001", "Lesson:L-001"),
         ("RiskClass:cyber-logistics", "RiskClass:cyber-logistics"),
     ],
 )
-def test_a_citation_is_a_link_when_it_names_a_file_and_text_when_it_does_not(
+def test_a_citation_is_a_link_when_it_names_a_vault_file_and_text_when_it_does_not(
     citation: str, rendered: str
 ) -> None:
     assert orchestrator.evidence(citation) == rendered

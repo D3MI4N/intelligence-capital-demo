@@ -24,9 +24,10 @@ auditable run.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 
 from agents import llm
 from agents.context import Orientation, orient, strip_unverified
@@ -336,41 +337,110 @@ def render(assessments: Sequence[Assessment], report: ValidationReport) -> str:
 
 
 def briefing_section(draft: str, allowed: frozenset[str], stamp: str) -> str:
-    """The draft as it goes into briefing.md, with what it rests on underneath."""
-    citations = " - ".join(evidence(citation) for citation in sorted(allowed)) or "none"
+    """The draft as it goes into briefing.md, with what it rests on underneath.
+
+    The blank line under the evidence is load-bearing: markdown joins adjacent
+    lines into one paragraph, and the attribution glued onto the end of a long
+    footer reads as part of it rather than as the caveat it is.
+    """
+    citations = " - ".join(evidence_entries(allowed)) or "none"
     return (
         f"## Risk assessment draft - {stamp}\n\n"
         f"{draft.strip()}\n\n"
-        f"Evidence: {citations}\n"
+        f"Evidence: {citations}\n\n"
         f"Drafted by the {COMPOSER}. Not a decision - a human confirms or rejects it."
     )
 
 
-def evidence(citation: str) -> str:
-    """One citation on the Evidence line: a link when it names a file.
+def evidence_entries(citations: Iterable[str]) -> list[str]:
+    """The Evidence line, one entry per distinct thing the draft rests on.
 
-    The link text is the id exactly as it was cited, so the footer still reads
-    as provenance and a grep for a chunk id still finds it. The target is the
-    file that id points at - vault-relative, and without the chunk anchor,
-    because the anchor addresses a chunk of the index and no heading a reader
-    could land on. Obsidian opens it; so does an editor with the repo open.
+    Retrieval cites the same file under more than one id: search cites a chunk
+    of it, the graph cites it as a Document entity, and a document read across
+    three chunks arrives three times. That is three entries pointing one place,
+    and the underwriter reading the footer wants the document once. So files
+    are deduplicated by the file they resolve to, and everything that resolves
+    to no file - a case, a clause, a lesson, a risk class - is kept as cited,
+    because there is nothing to collapse it against.
+    """
+    ordered = sorted(citations)
+    kept = _citation_per_file(ordered)
+    entries = []
+    for citation in ordered:
+        target = _document_path(citation)
+        if not target:
+            entries.append(citation)
+        elif kept[target] == citation:
+            entries.append(evidence(citation))
+    return entries
+
+
+def evidence(citation: str) -> str:
+    """One citation on the Evidence line: a link when it names a vault file.
+
+    The target is the file the id points at - vault-root-relative, and without
+    the chunk anchor, because the anchor addresses a chunk of the document and
+    no heading a reader could land on. Obsidian opens it; so does an editor
+    with the repo open. The text is not the id: a raw path reads as noise in a
+    sentence, and what a reader scanning the footer wants is which case and
+    which document, which is what the alias says.
 
     This changes how the footer reads and nothing else. A markdown link is not
     a wikilink: ingest/wikilinks.py matches [[...]] and only that, so no edge
     is derived from any of this and the census is the same either side of the
-    change. Entity ids that name no file - a case, a clause, a lesson, a risk
-    class - stay plain text, because there is nothing to open.
+    change. Ids that name no vault file stay plain text, because there is
+    nothing to open.
     """
     target = _document_path(citation)
-    return f"[{citation}]({target})" if target else citation
+    return f"[{alias(target)}]({target})" if target else citation
+
+
+def alias(target: str) -> str:
+    """How a linked file reads on the Evidence line: '<parent folder> <name>'.
+
+    The folder is what tells one briefing.md from the next - it carries the
+    case id on a case document and the pattern family on a platform one - so
+    the pair reads as a name where the path read as a location.
+    """
+    path = PurePosixPath(target)
+    return f"{path.parent.name} {path.stem}".strip()
+
+
+def _citation_per_file(ordered: Sequence[str]) -> dict[str, str]:
+    """One citation per file: the chunk form when a file was cited both ways.
+
+    A chunk id is what the retrieval actually produced and what the trace of
+    the run carries, so it is the form kept when the graph cited the same file
+    as a Document entity.
+    """
+    kept: dict[str, str] = {}
+    for citation in ordered:
+        target = _document_path(citation)
+        if not target:
+            continue
+        current = kept.get(target)
+        if current is None or (_is_chunk(citation) and not _is_chunk(current)):
+            kept[target] = citation
+    return kept
+
+
+def _is_chunk(citation: str) -> bool:
+    """A chunk id is a document path with the chunk it came from anchored on."""
+    return "#" in citation
 
 
 def _document_path(citation: str) -> str:
-    """The file a citation points at, vault-relative, or "" if it names none."""
+    """The vault file a citation points at, or "" if it points at none.
+
+    Vault-internal only. raw/ documents are ingested and cited, but they sit
+    outside the Obsidian vault, so a link to one opens nothing wherever the
+    briefing is read from. Those citations stay plain text.
+    """
     path = citation.removeprefix(f"{entities.DOCUMENT}:").split("#", 1)[0]
-    if not path.endswith(".md"):
+    prefix = f"{layout.WIKI_DIR.name}/"
+    if not path.startswith(prefix) or not path.endswith(".md"):
         return ""
-    return path.removeprefix(f"{layout.WIKI_DIR.name}/")
+    return path.removeprefix(prefix)
 
 
 def decisions_section(
