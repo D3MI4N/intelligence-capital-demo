@@ -37,7 +37,7 @@ Rehearse the full run at least once on this machine. It costs nothing and takes 
     uv run python intelligence_capital_demo.py reset --replay
     uv run python intelligence_capital_demo.py run --replay
 
-The run pauses between phases; enter advances. The prompt names the phase that comes next.
+The run pauses between phases; enter advances. The prompt names the phase that comes next. Two phases pause a second time inside themselves, and both of those are places where a human acts rather than watches: `edit applied` in HUMAN IN THE LOOP, and `approve L-002 and promote` in COMPOUND. Six pauses in all.
 
 - `reset --replay` is the same command as in setup - it returns everything to the opening state.
 - `run --replay` streams the five phases from the recording, so no model is called and nothing is generated live.
@@ -85,27 +85,31 @@ Nothing else is typed during the demo, with one optional exception in HUMAN IN T
 
 ## WRITE BACK - steps 6-8
 
-**On screen:** two writes through `propose_wiki_update`, a normalisation note, the composed draft, the briefing diff, and a dated record in `decisions.md`.
+**On screen:** two writes through `propose_wiki_kb_update`, a normalisation note, the composed draft opening with a conflict alert heading, the briefing diff, and a dated record in `decisions.md`.
 
-**Say:** **"The draft goes back into the wiki through one door - `propose_wiki_update` - with the guardrails in the door, not in the agent's goodwill. Every claim carries its sources. And notice the third paragraph: the graph holds no exclusion recorded against this risk class, yet the precedent documents show exclusion CY-EX-04 applied at bind and disputed at claim time. Two sources in the knowledge base disagree - and instead of picking a side or papering over it, the agents flagged the conflict for a human. The system reasons over what the knowledge base actually contains, including its gaps."**
+**Do:** point at the first line of the composed draft - the alert heading.
+
+**Say:** **"Read the first line the underwriter gets. The graph holds no exclusion recorded against this risk class, yet the precedent documents show exclusion CY-EX-04 applied at bind and disputed at claim time. Two sources in the knowledge base disagree - and instead of picking a side or papering over it, the draft opens by naming the conflict. Nothing scripted that heading; the drafting agent was told to lead with a conflict if it found one, and this is the one it found. The system reasons over what the knowledge base actually contains, including its gaps."**
+
+**Say:** **"And the draft goes back into the wiki through one door - `propose_wiki_kb_update` - with the guardrails in the door, not in the agent's goodwill. Every claim carries its sources."**
 
 **Do:** point at the last line of the diff.
 
 **Say:** **"Drafted, not decided. The record in `decisions.md` is dated, not numbered - numbering is what a human does when they accept it."**
 
-**Do:** switch to Obsidian, open `briefing.md`, click one citation link.
+**Do:** switch to Obsidian, open `briefing.md`, scroll to the `Evidence:` line under the draft and click one of the links.
 
-**Say:** **"The agent wrote a document, not a row in a database. A person can read it, follow its sources, and edit it."**
+**Say:** **"The agent wrote a document, not a row in a database. Every source it rests on is at the foot of the draft, and each one that names a file is a link a person clicks. A chunk id is a real address in a real document. Nothing here is a lookup key you need the system to resolve for you."**
 
 **Do:** switch back to the terminal, press enter - HUMAN IN THE LOOP renders.
 
 ## HUMAN IN THE LOOP - step 9
 
-**On screen:** the human-in-the-loop panel, inviting a human to add a note to the briefing.
+**On screen:** the human-in-the-loop panel, inviting a human to add a note to the briefing, and then a second pause of its own - `[enter] edit applied`. Nothing is written until that second enter. The enter that brought this phase up did not apply anything.
 
-**Do:** the safe option - type nothing, touch no files, press enter. The run applies the scripted note itself.
+**Do:** the safe option - type nothing, touch no files, press enter at `edit applied`. The run applies the scripted note itself.
 
-**Do:** the live option, if the room should see the edit happen in Obsidian: switch to Obsidian, open `briefing.md`, paste the note below at the end of the file, save, switch back to the terminal, press enter. Paste it exactly - the demo compares what you saved against the fixture and treats a match as the scripted edit, so the run stays reproducible and no warning appears. Trailing spaces and line endings do not matter; a changed word does.
+**Do:** the live option, if the room should see the edit happen in Obsidian: leave the run waiting at `edit applied`, switch to Obsidian, open `briefing.md`, paste the note below at the end of the file, save, switch back to the terminal, press enter. Paste it exactly - the demo compares what you saved against the fixture and treats a match as the scripted edit, so the run stays reproducible and no warning appears. Trailing spaces and line endings do not matter; a changed word does.
 
     ## Underwriter note - HB - human edit
 
@@ -116,7 +120,7 @@ Nothing else is typed during the demo, with one optional exception in HUMAN IN T
     evidence of an access review. CY-EX-04 wording query sent to legal.
     Written by hand in Obsidian - no import, no re-indexing, no agent.
 
-Either way the screen ends up in the same place. If a `! typed edit - re-record the traces` warning does appear, the paste did not match: nothing is broken and the demo continues, but that run is not one to bless as a recording.
+Either way the screen ends up in the same place. If a `! typed edit - re-record the traces` warning does appear, the paste did not match. In a replayed run a second warning says the same thing in stronger terms, and it means it: COMPOUND rebuilds the indexes from the markdown this note landed in, and no recording covers a sentence nobody has recorded. Take the recovery - `ctrl+C`, `reset --replay`, `run --replay` - rather than pressing on.
 
 **On screen:** the underwriter's note from the fixture, marked as scripted, and the token counts moving.
 
@@ -154,7 +158,7 @@ Either way the screen ends up in the same place. If a `! typed edit - re-record 
 
 ## The close
 
-**On screen:** the final panel - 12 tool calls, 4 model calls, 12,759 tokens, 4 wiki writes.
+**On screen:** the final panel - 12 tool calls, 4 model calls, roughly thirteen thousand tokens, 4 wiki writes. The three counts are fixed by the run; the token total is whatever the recording composed, so read it off the screen rather than from here.
 
 **Say:** **"Every number on this screen is auditable - the trace is append-only JSONL, and what you watched is literally a replay of it. 
 Notice the run does not end with a decision - it ends with a referral. The draft, the evidence, the broker's note are all in the wiki waiting for a senior underwriter, and when that person decides, their decision becomes the first numbered record in this case's decisions file. The agents got everything ready; the judgment stays human. That is not a limitation we hit - it is the design."**
@@ -163,7 +167,7 @@ Notice the run does not end with a decision - it ends with a referral. The draft
 
 ## Questions you may get
 
-**Where do the index numbers come from (33/35/46/78)?** They are the census of the derived indexes: 33 markdown files parsed, cut into 35 retrieval chunks (most files are single-chunk), one embedding per chunk, and a graph of 46 nodes and 78 edges built from the files, their declared entities, and their links. The counts are deterministic - same files, same numbers every rebuild - and the demo moves them live: after the case closes they read 36/41/50/105, and every delta is a file, chunk, node or edge you watched being created.
+**Where do the index numbers come from (33/35/46/78)?** They are the census of the derived indexes: 33 markdown files parsed, cut into 35 retrieval chunks (most files are single-chunk), one embedding per chunk, and a graph of 46 nodes and 78 edges built from the files, their declared entities, and their links. The counts are deterministic - same files, same numbers every rebuild - and the demo moves them live: after the case closes they read roughly 36/42/50/105, and every delta is a file, chunk, node or edge you watched being created. Documents, nodes and edges land on the same numbers every time; the chunk count follows the length of the draft the run composed, so take the closing figure off the screen.
 
 **What are the three lines under the graph edges?** The same edges, split by what they connect, computed from the graph every time it is rebuilt. Typed entity relations are the vocabulary relating entities to each other - a case in a risk class, a case with a lesson. Document to entity references are the corpus pointing at what it talks about - this file belongs to that case, mentions that clause. File links are one file pointing at another: the wikilinks a person clicks, plus the locator lines a source note carries back to the raw document it was written from. The Obsidian vault graph on the other screen draws that last kind only - same markdown, two projections, which is the point of the last picture in the demo.
 
