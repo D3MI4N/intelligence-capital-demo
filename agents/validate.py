@@ -32,6 +32,12 @@ UNCITED = "uncited-finding"
 NO_FINDINGS = "no-findings"
 CONTRADICTION = "contradiction"
 
+# The tail every contradiction detail carries. Named rather than written twice
+# so that anything reading a conflict back out of the rendered findings - the
+# deterministic model the tests run the drafter against, for one - matches the
+# sentence this module actually writes.
+BOTH_POSITIONS = "both positions stand until a human resolves them"
+
 # Grade pairs that cannot both be right. Read as (severity, position).
 DISAGREEMENTS = (("high", "in-appetite"), ("low", "decline"))
 
@@ -111,8 +117,7 @@ def _contradiction_issues(assessments: Sequence[Assessment]) -> list[Issue]:
             kind=CONTRADICTION,
             agent=f"{EXPOSURE} - {APPETITE}",
             detail=(
-                f"exposure graded {severity} but appetite position is {position} - "
-                "both positions stand until a human resolves them"
+                f"exposure graded {severity} but appetite position is {position} - {BOTH_POSITIONS}"
             ),
         )
     ]

@@ -314,3 +314,73 @@ editor changes on its own - line endings, whitespace at the end of a line - and 
 match is recorded as the scripted edit, on the same trace line, with no warning.
 Anything else keeps the warning it always had, because it is the same fact it
 always was: a sentence the recordings have never seen.
+
+## The second client review - 2026-08-07
+
+**The human-in-the-loop phase pauses twice, and the second pause is the one
+that writes.** Naming the phases collapsed the invitation and the edit into one
+stretch: in replay the fixture was applied the moment the panel rendered, so the
+enter that advanced the phase was also the enter that wrote the note, and the
+room never saw the moment a human was asked. The phase now renders its
+invitation and waits again. Both modes take the same path from there - whatever
+is in the file at that second enter is the edit, and nothing typed means the
+fixture - which is why the paste the manual offers now works in the replayed run
+the manual is written for, where it silently did not. Two tests hold it, and the
+one that matters reads the file rather than the screen: losing the pause fails
+on the note having landed before the presenter was asked for one.
+
+**The search tool is aggregated_vector_db_search, because one grep said so.**
+search_knowledge_base named where it looked rather than how, and the review
+offered two names on one condition: hybrid if the search fuses keyword or
+lexical matching with vector similarity, vector if it does not. It does not. The
+path is embed(query) -> VectorStore.search -> a cosine KNN over the embedded
+corpus, and path_prefix filters document ids after the scan rather than scoring
+query terms - no full-text index, no BM25, no rank fusion anywhere in stores/.
+Claiming hybrid would have been a name the code cannot cash, in front of the
+people best placed to ask. CLAUDE.md carries the trigger for the day a lexical
+pass is added, and the driver now matches echoed trace lines against the names
+the tool module declares rather than copies of them.
+
+**propose_wiki_update becomes propose_wiki_kb_update.** The read door and the
+write door now name the same store. traverse_graph and read_case_context were
+already named for what they do and did not move.
+
+**The conflict alert is asked for, never scripted.** When the findings disagree,
+the draft opens with one heading line naming the conflict. The instruction gives
+the composer the form and deliberately not the subject: this wiki's conflict is
+the CY-EX-04 exclusion the graph does not carry and the precedent documents do,
+and a heading the driver supplied - or one matched out of the findings by a rule
+in the orchestrator - would be the demo announcing a discovery it already had.
+The first live attempt proved the difference: appended to the tail of the task
+paragraph the instruction never fired, and the fix was to give it its own block
+and say where to look, not to write the answer down. It is the model's call
+every run, so a run where the findings hold together opens with no heading, and
+that case has a test of its own.
+
+**The Evidence footer links; the knowledge graph does not notice.** The footer
+is assembled by code, so its citations that name a file are rendered as markdown
+links - the id as it was cited for the text, the same path vault-relative and
+without the chunk anchor for the target. Entity ids that open nothing stay plain
+text and the inline citations in the body are untouched. This is safe precisely
+because a markdown link is not a wikilink: ingest/wikilinks.py matches [[...]]
+and only that, so no edge is derived from any of it. Pinned rather than
+asserted - a real briefing is rebuilt both ways and the graphs compared.
+Documents under raw/ are ingested but sit outside the vault, so their targets
+stay repo-relative and resolve where the repo is the root rather than in
+Obsidian; there is no better address to give them.
+
+**The strictest-gate claim is made once, at the gate.** The COMPOUND intro and
+the approval pause both argued that a write into platform-ic changes what every
+future case retrieves. Said twice - once before the room has anything to decide
+about - it reads as a slogan. It stays at the pause, where the decision is; the
+intro now sets up the mechanics instead.
+
+**This branch invalidates the blessed recording, deliberately.** The renamed
+tools change the trace lines the demo echoes, the alert instruction changes the
+drafter's prompt and therefore the completion key, and both the alert heading
+and the linked footer change the bytes written into briefing.md, which the last
+phase re-chunks and re-embeds. So fixtures/recording/ is stale on merge and
+run --replay is not the acceptance for this branch: it was accepted on make
+check plus one live end-to-end run. A human re-records it afterwards by the
+rehearsal protocol in CLAUDE.md - reset, run, bless, reset --replay, run
+--replay - and commits the result. Until that lands, the demo runs live.

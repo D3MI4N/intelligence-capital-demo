@@ -13,7 +13,7 @@ bottom:
     cross-validate  rule-based, no model, deterministic
     compose         one model call, the draft a human will read
     normalise       the draft into house style, with the count on the trace
-    write back      through propose_wiki_update, never a file write of its own
+    write back      through propose_wiki_kb_update, never a file write of its own
 
 Two rules the module exists to keep. The orchestrator never touches a wiki file
 directly - every write goes through the tool that has the guardrails on it. And
@@ -44,6 +44,7 @@ from agents.specialists import (
 from agents.text import normalise
 from agents.validate import ValidationReport, cross_validate, grade
 from errors import WriteRefused
+from ingest import entities, layout
 from mcp_server import tools, tracing, writes
 from mcp_server.context import ToolContext, as_agent, default_context
 from mcp_server.results import WriteResult
@@ -71,11 +72,36 @@ DRAFTER = (
 
 DRAFT_TASK = (
     "Draft the risk assessment for {case_id}. Three to six short paragraphs of "
-    "markdown, no heading, no preamble. Carry the citation ids through in "
+    "markdown, no preamble, and no heading except the alert line described "
+    "below. Carry the citation ids through in "
     "square brackets after the claim they support, and cite only ids that appear "
     "verbatim in the specialist findings below - nothing else, and never an id "
     "you completed or adapted. Prefix anything you concluded rather than read "
     "with 'Assessment:'."
+)
+
+# Always asked for, and answered from the findings or not at all. Whether the
+# draft opens with an alert is the composer's reading of what it was handed -
+# a heading written in by the caller, or matched out of the findings by a rule
+# here, would be the demo announcing a conflict it already knew about. The
+# shape is specified and the subject deliberately is not.
+ALERT_TASK = (
+    "Before you draft, look for conflict in the evidence you were given - "
+    "between two findings, inside a single finding, or between the evidence "
+    "and the position being taken on it. What counts:\n"
+    "- a clause or exclusion applied in one source and absent from another, or "
+    "one whose application to this case was disputed or left unexamined\n"
+    "- something the retrieved documents state that the entity graph does not "
+    "carry, or the reverse\n"
+    "- a grading that cannot stand beside the position stated next to it\n"
+    "- a precedent whose outcome contradicts the current reading of the case\n\n"
+    "If you find one, the draft opens with a single third-level heading line "
+    "naming it and nothing above that line:\n\n"
+    "### <subject> Conflict Alert: <what is in dispute> in <where it applies>\n\n"
+    "One line, and the sharpest conflict only. It is the first thing an "
+    "underwriter reads, so it names the dispute rather than describing it, and "
+    "the paragraphs below still carry the evidence for it. If nothing in the "
+    "findings is in dispute, write no heading at all."
 )
 
 # Added only when there are open questions. Asking for a section that has no
@@ -196,7 +222,7 @@ def write_back_step(
     task = DRAFT_TASK.format(case_id=orientation.case_id)
     if report.open_questions:
         task += OPEN_QUESTIONS_TASK
-    prompt = "\n\n".join((task, render(assessments, report)))
+    prompt = "\n\n".join((task, ALERT_TASK, render(assessments, report)))
     composed = normalise(meter(system, prompt))
     draft = strip_unverified(composed.text, allowed)
     spend = meter.take()
@@ -311,13 +337,40 @@ def render(assessments: Sequence[Assessment], report: ValidationReport) -> str:
 
 def briefing_section(draft: str, allowed: frozenset[str], stamp: str) -> str:
     """The draft as it goes into briefing.md, with what it rests on underneath."""
-    citations = " - ".join(sorted(allowed)) or "none"
+    citations = " - ".join(evidence(citation) for citation in sorted(allowed)) or "none"
     return (
         f"## Risk assessment draft - {stamp}\n\n"
         f"{draft.strip()}\n\n"
         f"Evidence: {citations}\n"
         f"Drafted by the {COMPOSER}. Not a decision - a human confirms or rejects it."
     )
+
+
+def evidence(citation: str) -> str:
+    """One citation on the Evidence line: a link when it names a file.
+
+    The link text is the id exactly as it was cited, so the footer still reads
+    as provenance and a grep for a chunk id still finds it. The target is the
+    file that id points at - vault-relative, and without the chunk anchor,
+    because the anchor addresses a chunk of the index and no heading a reader
+    could land on. Obsidian opens it; so does an editor with the repo open.
+
+    This changes how the footer reads and nothing else. A markdown link is not
+    a wikilink: ingest/wikilinks.py matches [[...]] and only that, so no edge
+    is derived from any of this and the census is the same either side of the
+    change. Entity ids that name no file - a case, a clause, a lesson, a risk
+    class - stay plain text, because there is nothing to open.
+    """
+    target = _document_path(citation)
+    return f"[{citation}]({target})" if target else citation
+
+
+def _document_path(citation: str) -> str:
+    """The file a citation points at, vault-relative, or "" if it names none."""
+    path = citation.removeprefix(f"{entities.DOCUMENT}:").split("#", 1)[0]
+    if not path.endswith(".md"):
+        return ""
+    return path.removeprefix(f"{layout.WIKI_DIR.name}/")
 
 
 def decisions_section(
@@ -382,10 +435,10 @@ def propose(context: ToolContext, orientation: Orientation, name: str, content: 
     path = f"{orientation.case_dir}/{name}"
     caller = as_agent(context, COMPOSER)
     try:
-        return tools.propose_wiki_update(caller, path, writes.APPEND_SECTION, content)
+        return tools.propose_wiki_kb_update(caller, path, writes.APPEND_SECTION, content)
     except WriteRefused:
         header = f"---\ncase_id: {orientation.case_id}\n---\n\n{HEADINGS[name]}\n\n"
-        return tools.propose_wiki_update(caller, path, writes.CREATE_FILE, f"{header}{content}")
+        return tools.propose_wiki_kb_update(caller, path, writes.CREATE_FILE, f"{header}{content}")
 
 
 def trace(

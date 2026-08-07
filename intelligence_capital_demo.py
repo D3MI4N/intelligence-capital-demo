@@ -30,7 +30,7 @@ installs it into traces/ - so the machine that presents the demo and the
 machine that recorded it need not be the same machine. See recording.py.
 
 What the demo does not do is touch storage on an agent's behalf. Everything
-written here goes through propose_wiki_update, exactly as an agent's write
+written here goes through propose_wiki_kb_update, exactly as an agent's write
 would, and lands on the same trace.
 """
 
@@ -106,7 +106,7 @@ CLAIMS = {
         (
             "Cross-validation is rule-based, so it says the same thing every rehearsal. "
             "The draft is composed once, normalised into house style, and written through "
-            "propose_wiki_update - the only door into the wiki, guardrails and all.\n\n"
+            "propose_wiki_kb_update - the only door into the wiki, guardrails and all.\n\n"
             "Guardrail: no model call decides whether the specialists agree. The rules "
             "compare graded labels from a closed vocabulary - severity low|medium|high, "
             "position in-appetite|refer|decline - and anything a specialist says outside "
@@ -123,12 +123,11 @@ CLAIMS = {
     5: (
         "COMPOUND - the case closes",
         (
-            "The case closes. A write into platform-ic changes what every future case in "
-            "the class retrieves, which makes it the strictest human gate in the "
-            "architecture: the lesson goes on screen first and is approved after it has "
-            "been read, never before. Once approved, the indexes are rebuilt from the "
-            "markdown with one command, and the precedent query from RETRIEVE comes back "
-            "with one more result than it did."
+            "The case closes. The precedent query from RETRIEVE runs once as it stands, "
+            "then the drafted lesson goes on screen with nothing written yet. Promoting "
+            "it takes an explicit approval - one keypress, on a gate with no edit path "
+            "beside it. Only then are the indexes rebuilt from the markdown with one "
+            "command, and the same precedent query asked again, argument for argument."
         ),
     ),
 }
@@ -324,9 +323,18 @@ def beat_write_back(
 def beat_hitl(stage: Stage, context: ToolContext, orientation: Orientation, replay: bool) -> None:
     """Phase four: a human edit, and the read that picks it up.
 
-    The comparison is taken from a fresh orientation rather than the one ORIENT
-    took, so the numbers on screen are the cost of the human's edit and not of
-    the draft the run itself wrote in between.
+    Two pauses, and the order between them is the whole beat. The one before
+    this phase is the presenter moving the run on; this phase then renders its
+    invitation and waits again, and only the second enter applies anything. A
+    single pause would mean the note appeared in the same breath as the offer
+    to write one, and the room would never see the moment a human was asked.
+
+    What happens at that second enter is the same in both modes: whatever is in
+    the file now is the edit. Nothing typed means the fixture is applied, which
+    is the safe option live and the only option in replay. The comparison is
+    taken from a fresh orientation rather than the one ORIENT took, so the
+    numbers on screen are the cost of the human's edit and not of the draft the
+    run itself wrote in between.
     """
     stage.beat(*CLAIMS[4])
     path = hitl.target(context.wiki_dir, orientation.case_dir)
@@ -335,23 +343,27 @@ def beat_hitl(stage: Stage, context: ToolContext, orientation: Orientation, repl
     before = hitl.read(path)
     current = orient_step(context, orientation.case_id)
 
+    stage.human(f"open {relative} in Obsidian, add a note, save")
+    stage.note(f"or write nothing, and the run applies the scripted note in {fixture}")
     if replay:
-        stage.human(f"scripted edit from {fixture}")
         stage.note("replay applies the fixture so the rebuild in COMPOUND finds its recordings")
+    stage.pause("edit applied")
+
+    after = hitl.read(path)
+    if after == before:
+        stage.human(f"scripted edit from {fixture}")
         edit = hitl.apply_fixture(context.wiki_dir, orientation.case_dir, context.traces_dir)
     else:
-        stage.human(f"open {relative} in Obsidian, add a note, save")
-        stage.pause("edit applied")
-        after = hitl.read(path)
-        if after == before:
-            stage.note("no edit typed - applying the scripted one instead")
-            edit = hitl.apply_fixture(context.wiki_dir, orientation.case_dir, context.traces_dir)
+        edit = hitl.human_edit(relative, before, after, context.traces_dir)
+        if edit.scripted:
+            stage.note(f"the note saved in Obsidian is {fixture} - the scripted edit")
         else:
-            edit = hitl.human_edit(relative, before, after, context.traces_dir)
-            if edit.scripted:
-                stage.note(f"the note saved in Obsidian is {fixture} - the scripted edit")
-            else:
-                stage.warn("typed edit - re-record the traces before rehearsing this run in replay")
+            stage.warn("typed edit - re-record the traces before rehearsing this run in replay")
+            if replay:
+                stage.warn(
+                    "no recording covers this sentence - ctrl+C and start again from "
+                    f"{PROGRAM} reset --replay"
+                )
 
     stage.markdown(edit.section, title=f"human edit - {edit.path}")
     stage.step("the next read is a plain file read - nothing was imported or re-indexed")
@@ -448,7 +460,7 @@ def closing(
             ["tokens through the agents", f"{tokens:,}"],
             [
                 "wiki writes",
-                str(len([line for line in calls if line["tool"] == "propose_wiki_update"])),
+                str(len([line for line in calls if line["tool"] == tools.PROPOSE])),
             ],
             ["case", result.case_id],
         ],
@@ -608,7 +620,7 @@ def in_signature_order(tool: str, args: Mapping[str, Any]) -> dict[str, Any]:
     """Traced arguments, back in the order the tool declares them.
 
     A trace line is JSON with sorted keys, and an echo that read
-    "search_knowledge_base(path_prefix=None, query=...)" would not be the call
+    "aggregated_vector_db_search(path_prefix=None, query=...)" would not be the call
     anyone wrote. The order comes from the tool's own signature rather than a
     list kept here, so it cannot drift from the contract.
     """
@@ -689,20 +701,24 @@ def shell(command: Sequence[str], cwd: Path = layout.REPO_ROOT) -> list[str]:
 
 
 def _summary(tool: str, result: Mapping[str, Any]) -> list[str]:
-    """What a tool returned, in the shortest form that is still checkable."""
-    if tool == "search_knowledge_base":
+    """What a tool returned, in the shortest form that is still checkable.
+
+    Matched against the names the tools declare rather than copies of them, so
+    renaming a tool cannot leave the echo reading a line it no longer matches.
+    """
+    if tool == tools.SEARCH:
         pairs = zip(result["chunk_ids"], result.get("scores", []))
         return [f"{len(result['chunk_ids'])} chunks"] + [
             f"  {chunk_id}  {float(score):.3f}" for chunk_id, score in pairs
         ]
-    if tool == "traverse_graph":
+    if tool == tools.TRAVERSE:
         return [
             f"{result['nodes']} entities, {result['edges']} relations",
             "  " + " - ".join(str(node) for node in result["node_ids"]),
         ]
-    if tool == "read_case_context":
+    if tool == tools.READ_CASE:
         return [f"{result['documents']} documents, {result['total_tokens']:,} tokens"]
-    if tool == "propose_wiki_update":
+    if tool == tools.PROPOSE:
         state = "created" if result["created"] else "appended"
         return [f"{state} {result['path']} ({result['bytes_written']:,} bytes)"]
     if tool == "demo.human_edit":

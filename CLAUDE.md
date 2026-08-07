@@ -12,9 +12,10 @@ intelligence_capital_demo.py must run these five beats end to end:
 
 1. ORIENT: orchestrator reads AGENTS.md cascade -> index.md -> briefing.md via
    direct file reads. Live token counter shown per read.
-2. RETRIEVE: three specialists call MCP tools in parallel. search_knowledge_base()
-   returns ranked chunks with provenance. traverse_graph() returns an entity
-   subgraph. GraphRAG merge produces one context block.
+2. RETRIEVE: three specialists call MCP tools in parallel.
+   aggregated_vector_db_search() returns ranked chunks with provenance.
+   traverse_graph() returns an entity subgraph. GraphRAG merge produces one
+   context block.
 3. WRITE BACK: draft assessment written to briefing.md and decisions.md, every
    claim citing chunk IDs and entity IDs.
 4. HITL: a human edit made in any markdown file is picked up on the next run.
@@ -35,8 +36,12 @@ THE LOOP - step 9", "COMPOUND - the case closes", and the closing panel is
 - The wiki markdown files are the primary store. Vector index and graph are
   derived, disposable, and rebuilt from the files with one command.
 - Agents never touch storage directly. All retrieval goes through the MCP tools:
-  search_knowledge_base(), traverse_graph(), read_case_context(),
-  propose_wiki_update().
+  aggregated_vector_db_search(), traverse_graph(), read_case_context(),
+  propose_wiki_kb_update().
+- A tool name states what the tool does. aggregated_vector_db_search is pure
+  vector similarity over the embedded corpus - the day a keyword or lexical
+  pass is fused into it, the name becomes aggregated_hybrid_search and this
+  line moves with it.
 - Vendor-agnostic naming everywhere in code, comments, and docstrings:
   "vector index" not a product name, "knowledge graph" not a product name.
   The LLM provider is invisible outside llm.py.

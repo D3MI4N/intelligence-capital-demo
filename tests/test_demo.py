@@ -36,7 +36,11 @@ CASE_DIR = "wiki/submissions/SUB-2025-007"
 STAMP = "2025-04-01"
 PLATFORM_PATH = "wiki/platform-ic/engagement-lessons/vendor-access-cyber-logistics.md"
 COMPOUND = "COMPOUND - the case closes"
+HITL = "HUMAN IN THE LOOP - step 9"
 DRAFTED = "Price the concentration"  # a line only the drafted lesson carries
+INVITATION = f"open {CASE_DIR}/briefing.md in Obsidian"
+SCRIPTED = "scripted edit from fixtures/hitl-edit.md"
+NOTE = "Underwriter note"  # the heading the scripted edit adds to the briefing
 
 
 @pytest.fixture
@@ -133,11 +137,11 @@ def test_beat_two_echoes_every_tool_call_with_the_arguments_it_was_made_with(
 ) -> None:
     """The deck shows these strings. They have to be these strings."""
     assert (
-        'search_knowledge_base(query="cyber-logistics exposure - loss drivers, '
+        'aggregated_vector_db_search(query="cyber-logistics exposure - loss drivers, '
         'business interruption, dependencies", top_k=5, path_prefix=None)'
     ) in five_beats
     assert (
-        'search_knowledge_base(query="cyber-logistics precedent - prior claims, '
+        'aggregated_vector_db_search(query="cyber-logistics precedent - prior claims, '
         'coverage outcome, lessons", top_k=5, path_prefix=None)'
     ) in five_beats
     assert (
@@ -160,12 +164,12 @@ def test_beat_two_reports_what_came_back_and_what_it_cost(five_beats: str) -> No
 
 def test_every_echoed_call_is_prefixed_with_the_agent_the_trace_recorded(five_beats: str) -> None:
     """Read off the trace line, never guessed: the three specialists interleave."""
-    assert "exposure_analyst -> search_knowledge_base(" in five_beats
+    assert "exposure_analyst -> aggregated_vector_db_search(" in five_beats
     assert "appetite_checker -> traverse_graph(" in five_beats
-    assert "precedent_finder -> search_knowledge_base(" in five_beats
+    assert "precedent_finder -> aggregated_vector_db_search(" in five_beats
     assert "precedent_finder -> traverse_graph(" in five_beats
-    assert "risk_assessment_orchestrator -> propose_wiki_update(" in five_beats
-    assert "case_close -> propose_wiki_update(" in five_beats
+    assert "risk_assessment_orchestrator -> propose_wiki_kb_update(" in five_beats
+    assert "case_close -> propose_wiki_kb_update(" in five_beats
 
 
 def test_a_trace_line_that_names_no_agent_is_echoed_under_the_step_it_came_from(
@@ -173,7 +177,7 @@ def test_a_trace_line_that_names_no_agent_is_echoed_under_the_step_it_came_from(
 ) -> None:
     """A blessed trace recorded before the field still has to read as something."""
     older: dict[str, Any] = {
-        "tool": "search_knowledge_base",
+        "tool": "aggregated_vector_db_search",
         "status": "ok",
         "args": {"query": "cyber", "top_k": 5, "path_prefix": None},
         "result": {"chunk_ids": ["wiki/a.md#0"], "scores": [0.5]},
@@ -181,13 +185,13 @@ def test_a_trace_line_that_names_no_agent_is_echoed_under_the_step_it_came_from(
 
     demo.echo(stage, [older], demo.SPECIALIST)
 
-    assert "specialist -> search_knowledge_base(" in screen.getvalue()
+    assert "specialist -> aggregated_vector_db_search(" in screen.getvalue()
 
 
 def test_beat_three_writes_through_the_tool_and_shows_the_diff(
     five_beats: str, sandbox: Sandbox
 ) -> None:
-    assert f'propose_wiki_update(path="{CASE_DIR}/briefing.md"' in five_beats
+    assert f'propose_wiki_kb_update(path="{CASE_DIR}/briefing.md"' in five_beats
     assert f"diff - {CASE_DIR}/briefing.md" in five_beats
     assert "composed draft" in five_beats
     assert "## Risk assessment draft" in sandbox.written(CASE_DIR, "briefing.md")
@@ -206,6 +210,49 @@ def test_beat_four_applies_the_scripted_edit_and_says_so(five_beats: str, sandbo
     assert "orientation tokens" in five_beats
 
 
+def test_beat_four_invites_the_human_before_any_edit_is_applied(five_beats: str) -> None:
+    """The offer to write comes first. Nothing lands in the same breath as it."""
+    beat = five_beats.split(HITL)[1]
+
+    assert beat.index(INVITATION) < beat.index(SCRIPTED)
+    assert beat.index(SCRIPTED) < beat.index("human edit - ")
+
+
+def test_beat_four_pauses_for_its_own_enter_before_the_edit_lands(
+    monkeypatch: pytest.MonkeyPatch, paused_stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM
+) -> None:
+    """Two pauses, and the fixture is applied at the second one, never the first.
+
+    Recorded off the file rather than off the screen: what must not happen is
+    the note reaching briefing.md while the presenter is still being asked for
+    it, and only the file can say whether it did.
+    """
+    briefing = sandbox.path(CASE_DIR, "briefing.md")
+    edited: list[tuple[str, bool]] = []
+
+    def press(_console: Console, prompt: object = "", **_: object) -> str:
+        edited.append((str(prompt), NOTE in briefing.read_text(encoding="utf-8")))
+        return ""
+
+    monkeypatch.setattr(Console, "input", press)
+    _beats(paused_stage, sandbox, fake_llm)
+
+    prompts = [prompt for prompt, _ in edited]
+    transition = _pause_at(prompts, f"next: {HITL}")
+    inner = _pause_at(prompts, "edit applied")
+    assert transition < inner
+    assert not any(applied for _, applied in edited[: inner + 1])
+    assert NOTE in briefing.read_text(encoding="utf-8")
+
+
+def _pause_at(prompts: list[str], wanted: str) -> int:
+    """Where the presenter was asked for this, or a failure naming what was asked."""
+    for index, prompt in enumerate(prompts):
+        if wanted in prompt:
+            return index
+    raise AssertionError(f"no pause for '{wanted}' - the run only paused at {prompts}")
+
+
 def test_beat_five_closes_the_case_and_the_query_returns_one_more_result(
     five_beats: str, sandbox: Sandbox
 ) -> None:
@@ -218,9 +265,17 @@ def test_beat_five_shows_the_drafted_lesson_before_it_writes_anything(five_beats
     """The gate opens after the reading, so the reading has to come first."""
     beat = five_beats.split(COMPOUND)[1]
 
-    assert beat.index(DRAFTED) < beat.index("propose_wiki_update")
+    assert beat.index(DRAFTED) < beat.index("propose_wiki_kb_update")
     assert "nothing written yet" in beat
     assert "strictest gate" in beat
+
+
+def test_the_strictest_gate_is_argued_once_where_the_decision_is_taken(five_beats: str) -> None:
+    """The phase intro sets up the mechanics; the pause makes the case for the gate."""
+    beat = five_beats.split(COMPOUND)[1]
+
+    assert beat.count("strictest gate") == 1
+    assert beat.index("nothing written yet") < beat.index("strictest gate")
 
 
 def test_the_promotion_gate_waits_for_approval_with_the_lesson_on_screen(
@@ -234,7 +289,7 @@ def test_the_promotion_gate_waits_for_approval_with_the_lesson_on_screen(
     assert "approve" in prompt
     approved = seen.split(COMPOUND)[1]
     assert DRAFTED in approved
-    assert "propose_wiki_update" not in approved
+    assert "propose_wiki_kb_update" not in approved
 
 
 def test_no_pause_runs_the_gate_unattended(

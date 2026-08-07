@@ -37,7 +37,7 @@ def context() -> ToolContext:
 
 
 @server.tool()
-def search_knowledge_base(
+def aggregated_vector_db_search(
     query: str, top_k: int = 5, path_prefix: str | None = None
 ) -> list[ChunkHit]:
     """Search the wiki for chunks matching a query.
@@ -46,7 +46,7 @@ def search_knowledge_base(
     path a claim must cite. path_prefix narrows the search to part of the
     corpus, for example "wiki/claims/".
     """
-    return tools.search_knowledge_base(context(), query, top_k, path_prefix)
+    return tools.aggregated_vector_db_search(context(), query, top_k, path_prefix)
 
 
 @server.tool()
@@ -70,14 +70,14 @@ def read_case_context(case_id: str) -> CaseContext:
 
 
 @server.tool()
-def propose_wiki_update(path: str, operation: str, content: str) -> WriteResult:
+def propose_wiki_kb_update(path: str, operation: str, content: str) -> WriteResult:
     """Write to the wiki. Operations: append_section, replace_section, create_file.
 
     path is a wiki path such as "wiki/claims/CLM-2024-042/briefing.md".
     Writes outside the wiki, to AGENTS.md, to vocabulary/, or over an existing
     decision record are refused.
     """
-    return tools.propose_wiki_update(context(), path, operation, content)
+    return tools.propose_wiki_kb_update(context(), path, operation, content)
 
 
 def main() -> None:

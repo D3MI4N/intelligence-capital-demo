@@ -108,7 +108,7 @@ def exposure_analyst(
     context: ToolContext, orientation: Orientation, complete: CompleteFn
 ) -> Assessment:
     """What drives loss on this risk, from the corpus."""
-    hits = tools.search_knowledge_base(
+    hits = tools.aggregated_vector_db_search(
         as_agent(context, EXPOSURE),
         EXPOSURE_QUERY.format(risk_class=orientation.risk_class),
         top_k=TOP_K,
@@ -145,7 +145,7 @@ def precedent_finder(
 ) -> Assessment:
     """What comparable cases already taught us, from both indexes merged."""
     caller = as_agent(context, PRECEDENT)
-    hits = tools.search_knowledge_base(
+    hits = tools.aggregated_vector_db_search(
         caller, PRECEDENT_QUERY.format(risk_class=orientation.risk_class), top_k=TOP_K
     )
     seed = entities.node_id(entities.RISK_CLASS, orientation.risk_class)
