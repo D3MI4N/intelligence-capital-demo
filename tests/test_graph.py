@@ -147,6 +147,29 @@ def test_the_store_is_traversable_over_two_hops(corpus: Roots, tmp_path: Path) -
     assert "Lesson:L-900" in {node.node_id for node in subgraph.nodes}
 
 
+def test_a_markdown_link_in_an_evidence_footer_derives_no_edge(corpus: Roots, wiki: Path) -> None:
+    """The Evidence footer became clickable; the census must not have noticed.
+
+    Only [[wikilinks]] are references - ingest/wikilinks.py matches that and
+    nothing else - so a standard markdown link naming the same file adds no
+    node and no edge. Written into a real case briefing and rebuilt, because
+    the footer is a thing that lands in a real case briefing.
+    """
+    briefing = wiki / "claims" / "CLM-9999-001" / "briefing.md"
+    original = briefing.read_text(encoding="utf-8")
+    plain = "Evidence: wiki/claims/CLM-9999-001/index.md#c000 - Case:CLM-9999-001"
+    linked = (
+        "Evidence: [wiki/claims/CLM-9999-001/index.md#c000]"
+        "(claims/CLM-9999-001/index.md) - Case:CLM-9999-001"
+    )
+
+    briefing.write_text(f"{original}\n{plain}\n", encoding="utf-8")
+    before = graph_of(corpus)
+    briefing.write_text(f"{original}\n{linked}\n", encoding="utf-8")
+
+    assert graph_of(corpus) == before
+
+
 def test_edges_are_deduplicated_per_source_document(corpus: Roots) -> None:
     graph = graph_of(corpus)
 

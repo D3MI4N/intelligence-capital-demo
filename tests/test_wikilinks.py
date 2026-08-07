@@ -34,3 +34,12 @@ def test_targets_are_distinct_in_first_seen_order() -> None:
 
 def test_plain_brackets_are_not_links() -> None:
     assert find_wikilinks("An array literal [not, a, link] stays text.") == ()
+
+
+def test_a_markdown_link_is_not_a_wikilink() -> None:
+    """The Evidence footer writes these. A reference is [[...]] and only that."""
+    footer = "Evidence: [wiki/claims/CLM-2024-042/index.md#c000](claims/CLM-2024-042/index.md)"
+
+    assert find_wikilinks(footer) == ()
+    assert targets(footer) == ()
+    assert render_labels(footer) == footer

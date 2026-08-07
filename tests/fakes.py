@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agents.context import cited_ids
+from agents.validate import BOTH_POSITIONS
 from mcp_server.context import ToolContext
 
 
@@ -57,6 +58,8 @@ class FakeLLM:
     # A non-breaking hyphen and an em dash, the two the drafter is asked not to
     # produce, so a run over this fake exercises the normalisation as well.
     EXOTIC = "vendor\u2011operated systems \u2014 the loss path"
+    # What the drafter opens with when the findings it was handed disagree.
+    ALERT = "### Coverage Conflict Alert: "
 
     def __init__(
         self, severity: str = "high", position: str = "in-appetite", invents: bool = True
@@ -69,15 +72,32 @@ class FakeLLM:
         self.calls.append((system, prompt))
         found = [value for value in cited_ids(prompt) if value != self.INVENTED]
         if "drafting agent" in system:
-            return self.draft(found)
+            return self.draft(found, prompt)
         return self.assessment(found, prompt)
 
-    def draft(self, found: list[str]) -> str:
+    def draft(self, found: list[str], prompt: str) -> str:
+        """The composed draft, opened with an alert when the findings conflict.
+
+        The heading is written from the conflict the prompt actually carries,
+        never from a constant: what is under test is that the composer produces
+        it off the findings, and a fake that emitted one regardless would prove
+        the opposite.
+        """
         supported = f" [{found[0]}]" if found else ""
         opening = f"Assessment: {self.EXOTIC} matches the pattern already on file{supported}."
-        if not self.invents:
-            return opening
-        return f"{opening}\n\nAssessment: one point needs a human [{self.INVENTED}]."
+        body = opening
+        if self.invents:
+            body = f"{opening}\n\nAssessment: one point needs a human [{self.INVENTED}]."
+        conflict = self.conflict(prompt)
+        return f"{self.ALERT}{conflict}\n\n{body}" if conflict else body
+
+    @staticmethod
+    def conflict(prompt: str) -> str:
+        """What the findings say is in dispute, or "" when they hold together."""
+        for line in prompt.splitlines():
+            if BOTH_POSITIONS in line:
+                return line.split(" - ", 1)[0].removeprefix("- ").strip()
+        return ""
 
     def assessment(self, found: list[str], prompt: str) -> str:
         findings: list[dict[str, object]] = [

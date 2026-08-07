@@ -8,6 +8,7 @@ every step, and nothing was written except through the tool.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import pytest
@@ -60,6 +61,109 @@ def test_the_draft_lands_in_the_briefing_with_its_evidence(
     assert run.draft.strip().splitlines()[0] in briefing
     assert "Evidence:" in briefing
     assert "Not a decision" in briefing
+
+
+def test_the_draft_opens_with_an_alert_when_the_findings_conflict(
+    run: orchestrator.RunResult, sandbox: Sandbox
+) -> None:
+    """Exposure graded high, appetite in-appetite: the draft says so before anything else."""
+    opening = run.draft.strip().splitlines()[0]
+
+    assert opening.startswith("### ")
+    assert "Conflict Alert:" in opening
+    assert "exposure graded high but appetite position is in-appetite" in opening
+    assert sandbox.written(CASE_DIR, "briefing.md").count("Conflict Alert:") == 1
+
+
+def test_a_draft_with_nothing_in_conflict_carries_no_alert(sandbox: Sandbox) -> None:
+    """A heading nobody needed is a heading the underwriter reads for nothing."""
+    clean = FakeLLM(severity="medium", position="in-appetite", invents=False)
+
+    result = orchestrator.run_risk_assessment(CASE, sandbox.context, clean)
+
+    assert result.report.ok
+    assert "Conflict Alert" not in result.draft
+    assert not result.draft.strip().startswith("#")
+    assert "Conflict Alert" not in sandbox.written(CASE_DIR, "briefing.md")
+
+
+def test_the_alert_is_asked_for_and_never_handed_over(
+    run: orchestrator.RunResult, fake_llm: FakeLLM
+) -> None:
+    """The composer finds the conflict. Scripting the line would fake the discovery."""
+    _, prompt = fake_llm.calls[-1]
+
+    assert "Conflict Alert" in prompt  # the task asks for one
+    assert run.draft.strip().splitlines()[0] not in prompt  # nobody supplied it
+
+
+def test_the_evidence_footer_links_files_and_leaves_entities_plain(
+    run: orchestrator.RunResult, sandbox: Sandbox
+) -> None:
+    """A chunk id opens the document it came from; a clause has nothing to open."""
+    footer = _footer(sandbox)
+
+    assert re.search(r"\[wiki/[^\]]+\.md#c\d+\]\([^)]+\.md\)", footer)
+    assert re.search(r"\bCase:[A-Z]", footer)
+    assert "](Case:" not in footer
+    assert "#c" not in re.sub(r"\[[^\]]*\]", "", footer)  # no anchor in any target
+
+
+def test_every_evidence_link_targets_a_file_that_is_there(
+    run: orchestrator.RunResult, sandbox: Sandbox
+) -> None:
+    """A link nobody can follow reads worse than the plain id it replaced."""
+    vault = sandbox.context.wiki_dir
+    targets = re.findall(r"\]\(([^)]+)\)", _footer(sandbox))
+
+    assert targets
+    assert all(
+        (vault / target).is_file() or (vault.parent / target).is_file() for target in targets
+    )
+
+
+def test_the_citations_in_the_body_are_left_as_they_were(
+    run: orchestrator.RunResult, sandbox: Sandbox
+) -> None:
+    """Only the footer changed shape. A claim still carries the bare id."""
+    body = sandbox.written(CASE_DIR, "briefing.md").split("Evidence: ")[0]
+
+    assert cited_ids(body)
+    assert "](" not in body
+
+
+@pytest.mark.parametrize(
+    ("citation", "rendered"),
+    [
+        (
+            "wiki/claims/CLM-2024-042/index.md#c000",
+            "[wiki/claims/CLM-2024-042/index.md#c000](claims/CLM-2024-042/index.md)",
+        ),
+        (
+            "Document:wiki/platform-ic/domain-patterns/cyber-bi-logistics.md",
+            (
+                "[Document:wiki/platform-ic/domain-patterns/cyber-bi-logistics.md]"
+                "(platform-ic/domain-patterns/cyber-bi-logistics.md)"
+            ),
+        ),
+        # raw/ is ingested but sits outside the vault, so its path stands as it is.
+        ("raw/clm042-fnol.md#c000", "[raw/clm042-fnol.md#c000](raw/clm042-fnol.md)"),
+        ("Case:SUB-2024-018", "Case:SUB-2024-018"),
+        ("Clause:CY-EX-04", "Clause:CY-EX-04"),
+        ("Lesson:L-001", "Lesson:L-001"),
+        ("RiskClass:cyber-logistics", "RiskClass:cyber-logistics"),
+    ],
+)
+def test_a_citation_is_a_link_when_it_names_a_file_and_text_when_it_does_not(
+    citation: str, rendered: str
+) -> None:
+    assert orchestrator.evidence(citation) == rendered
+
+
+def _footer(sandbox: Sandbox) -> str:
+    """The Evidence line of the case briefing."""
+    lines = sandbox.written(CASE_DIR, "briefing.md").splitlines()
+    return next(line for line in lines if line.startswith("Evidence: "))
 
 
 def test_a_decision_record_is_appended_for_the_case(sandbox: Sandbox) -> None:
