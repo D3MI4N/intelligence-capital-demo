@@ -13,7 +13,7 @@ bottom:
     cross-validate  rule-based, no model, deterministic
     compose         one model call, the draft a human will read
     normalise       the draft into house style, with the count on the trace
-    write back      through propose_wiki_update, never a file write of its own
+    write back      through propose_wiki_kb_update, never a file write of its own
 
 Two rules the module exists to keep. The orchestrator never touches a wiki file
 directly - every write goes through the tool that has the guardrails on it. And
@@ -382,10 +382,10 @@ def propose(context: ToolContext, orientation: Orientation, name: str, content: 
     path = f"{orientation.case_dir}/{name}"
     caller = as_agent(context, COMPOSER)
     try:
-        return tools.propose_wiki_update(caller, path, writes.APPEND_SECTION, content)
+        return tools.propose_wiki_kb_update(caller, path, writes.APPEND_SECTION, content)
     except WriteRefused:
         header = f"---\ncase_id: {orientation.case_id}\n---\n\n{HEADINGS[name]}\n\n"
-        return tools.propose_wiki_update(caller, path, writes.CREATE_FILE, f"{header}{content}")
+        return tools.propose_wiki_kb_update(caller, path, writes.CREATE_FILE, f"{header}{content}")
 
 
 def trace(

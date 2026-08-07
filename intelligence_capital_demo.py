@@ -30,7 +30,7 @@ installs it into traces/ - so the machine that presents the demo and the
 machine that recorded it need not be the same machine. See recording.py.
 
 What the demo does not do is touch storage on an agent's behalf. Everything
-written here goes through propose_wiki_update, exactly as an agent's write
+written here goes through propose_wiki_kb_update, exactly as an agent's write
 would, and lands on the same trace.
 """
 
@@ -106,7 +106,7 @@ CLAIMS = {
         (
             "Cross-validation is rule-based, so it says the same thing every rehearsal. "
             "The draft is composed once, normalised into house style, and written through "
-            "propose_wiki_update - the only door into the wiki, guardrails and all.\n\n"
+            "propose_wiki_kb_update - the only door into the wiki, guardrails and all.\n\n"
             "Guardrail: no model call decides whether the specialists agree. The rules "
             "compare graded labels from a closed vocabulary - severity low|medium|high, "
             "position in-appetite|refer|decline - and anything a specialist says outside "
@@ -461,7 +461,7 @@ def closing(
             ["tokens through the agents", f"{tokens:,}"],
             [
                 "wiki writes",
-                str(len([line for line in calls if line["tool"] == "propose_wiki_update"])),
+                str(len([line for line in calls if line["tool"] == tools.PROPOSE])),
             ],
             ["case", result.case_id],
         ],
@@ -621,7 +621,7 @@ def in_signature_order(tool: str, args: Mapping[str, Any]) -> dict[str, Any]:
     """Traced arguments, back in the order the tool declares them.
 
     A trace line is JSON with sorted keys, and an echo that read
-    "search_knowledge_base(path_prefix=None, query=...)" would not be the call
+    "aggregated_vector_db_search(path_prefix=None, query=...)" would not be the call
     anyone wrote. The order comes from the tool's own signature rather than a
     list kept here, so it cannot drift from the contract.
     """
@@ -702,20 +702,24 @@ def shell(command: Sequence[str], cwd: Path = layout.REPO_ROOT) -> list[str]:
 
 
 def _summary(tool: str, result: Mapping[str, Any]) -> list[str]:
-    """What a tool returned, in the shortest form that is still checkable."""
-    if tool == "search_knowledge_base":
+    """What a tool returned, in the shortest form that is still checkable.
+
+    Matched against the names the tools declare rather than copies of them, so
+    renaming a tool cannot leave the echo reading a line it no longer matches.
+    """
+    if tool == tools.SEARCH:
         pairs = zip(result["chunk_ids"], result.get("scores", []))
         return [f"{len(result['chunk_ids'])} chunks"] + [
             f"  {chunk_id}  {float(score):.3f}" for chunk_id, score in pairs
         ]
-    if tool == "traverse_graph":
+    if tool == tools.TRAVERSE:
         return [
             f"{result['nodes']} entities, {result['edges']} relations",
             "  " + " - ".join(str(node) for node in result["node_ids"]),
         ]
-    if tool == "read_case_context":
+    if tool == tools.READ_CASE:
         return [f"{result['documents']} documents, {result['total_tokens']:,} tokens"]
-    if tool == "propose_wiki_update":
+    if tool == tools.PROPOSE:
         state = "created" if result["created"] else "appended"
         return [f"{state} {result['path']} ({result['bytes_written']:,} bytes)"]
     if tool == "demo.human_edit":

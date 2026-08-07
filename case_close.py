@@ -4,7 +4,7 @@ This is the compounding step, and it is deliberately not an agent step. An
 agent drafts, a human decides, and promoting a case lesson into the platform
 layer is a decision - it changes what every future case in the class retrieves.
 So the ceremony is performed here, by the demo standing in for the human and
-the Main Orchestrator together, and it still goes through propose_wiki_update:
+the Main Orchestrator together, and it still goes through propose_wiki_kb_update:
 the same door, the same guardrails, the same trace line. Agents never touch
 storage, and neither does anything else in this repo.
 
@@ -158,7 +158,7 @@ def precedent_query(context: ToolContext, risk_class: str) -> Precedent:
     something.
     """
     caller = as_agent(context, CEREMONY)
-    hits = tools.search_knowledge_base(
+    hits = tools.aggregated_vector_db_search(
         caller, PRECEDENT_QUERY.format(risk_class=risk_class), top_k=TOP_K
     )
     subgraph = tools.traverse_graph(
@@ -220,6 +220,6 @@ def _write(context: ToolContext, path: str, page: Page) -> WriteResult:
     """
     caller = as_agent(context, CEREMONY)
     try:
-        return tools.propose_wiki_update(caller, path, writes.CREATE_FILE, page.text)
+        return tools.propose_wiki_kb_update(caller, path, writes.CREATE_FILE, page.text)
     except WriteRefused:
-        return tools.propose_wiki_update(caller, path, writes.REPLACE_SECTION, page.section)
+        return tools.propose_wiki_kb_update(caller, path, writes.REPLACE_SECTION, page.section)

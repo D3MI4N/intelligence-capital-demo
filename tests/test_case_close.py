@@ -60,7 +60,7 @@ def test_the_promotion_goes_through_the_write_tool_like_any_other_write(
     """The ceremony is a human act, and it still uses the agents' door."""
     promotion = close(sandbox)
 
-    writes = [line for line in traces(sandbox) if line["tool"] == "propose_wiki_update"]
+    writes = [line for line in traces(sandbox) if line["tool"] == "propose_wiki_kb_update"]
     assert [line["args"]["operation"] for line in writes] == ["create_file", "create_file"]
     assert [line["result"]["path"] for line in writes] == [
         f"{CASE_DIR}/lessons.md",

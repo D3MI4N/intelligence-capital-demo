@@ -182,7 +182,7 @@ def test_a_run_with_open_questions_still_asks_for_them(sandbox: Sandbox, fake_ll
 def test_the_run_writes_nothing_the_write_tool_did_not_write(
     run: orchestrator.RunResult, sandbox: Sandbox
 ) -> None:
-    writes = [line for line in traces(sandbox) if line["tool"] == "propose_wiki_update"]
+    writes = [line for line in traces(sandbox) if line["tool"] == "propose_wiki_kb_update"]
     written = {line["result"]["path"] for line in writes if line["status"] == "ok"}
 
     assert written == {result["path"] for result in run.writes}
@@ -235,7 +235,7 @@ def test_the_agent_steps_and_the_tool_calls_share_one_stream(
 ) -> None:
     tools_used = {line["tool"] for line in traces(sandbox)}
 
-    assert "search_knowledge_base" in tools_used
+    assert "aggregated_vector_db_search" in tools_used
     assert "traverse_graph" in tools_used
     assert "agent.orient" in tools_used
 

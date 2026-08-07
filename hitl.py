@@ -61,7 +61,7 @@ def apply_fixture(
 ) -> Edit:
     """Append the scripted edit to the case file, as a human's editor would.
 
-    Deliberately a direct write. propose_wiki_update is the agents' door and
+    Deliberately a direct write. propose_wiki_kb_update is the agents' door and
     this is not an agent - the wiki rules say direct writes are for humans. The
     trace still records that the demo did it, because a run nobody can
     reconstruct is not an auditable run.

@@ -18,6 +18,6 @@ files extend them - they never repeat them.
   fits, propose one in lessons.md - do not invent free text inline.
 
 ## Writing to the wiki
-- Writes go through propose_wiki_update(). Direct file writes are for
+- Writes go through propose_wiki_kb_update(). Direct file writes are for
   humans only.
 - decisions.md is append-only. Never edit an existing decision record.

@@ -137,11 +137,11 @@ def test_beat_two_echoes_every_tool_call_with_the_arguments_it_was_made_with(
 ) -> None:
     """The deck shows these strings. They have to be these strings."""
     assert (
-        'search_knowledge_base(query="cyber-logistics exposure - loss drivers, '
+        'aggregated_vector_db_search(query="cyber-logistics exposure - loss drivers, '
         'business interruption, dependencies", top_k=5, path_prefix=None)'
     ) in five_beats
     assert (
-        'search_knowledge_base(query="cyber-logistics precedent - prior claims, '
+        'aggregated_vector_db_search(query="cyber-logistics precedent - prior claims, '
         'coverage outcome, lessons", top_k=5, path_prefix=None)'
     ) in five_beats
     assert (
@@ -164,12 +164,12 @@ def test_beat_two_reports_what_came_back_and_what_it_cost(five_beats: str) -> No
 
 def test_every_echoed_call_is_prefixed_with_the_agent_the_trace_recorded(five_beats: str) -> None:
     """Read off the trace line, never guessed: the three specialists interleave."""
-    assert "exposure_analyst -> search_knowledge_base(" in five_beats
+    assert "exposure_analyst -> aggregated_vector_db_search(" in five_beats
     assert "appetite_checker -> traverse_graph(" in five_beats
-    assert "precedent_finder -> search_knowledge_base(" in five_beats
+    assert "precedent_finder -> aggregated_vector_db_search(" in five_beats
     assert "precedent_finder -> traverse_graph(" in five_beats
-    assert "risk_assessment_orchestrator -> propose_wiki_update(" in five_beats
-    assert "case_close -> propose_wiki_update(" in five_beats
+    assert "risk_assessment_orchestrator -> propose_wiki_kb_update(" in five_beats
+    assert "case_close -> propose_wiki_kb_update(" in five_beats
 
 
 def test_a_trace_line_that_names_no_agent_is_echoed_under_the_step_it_came_from(
@@ -177,7 +177,7 @@ def test_a_trace_line_that_names_no_agent_is_echoed_under_the_step_it_came_from(
 ) -> None:
     """A blessed trace recorded before the field still has to read as something."""
     older: dict[str, Any] = {
-        "tool": "search_knowledge_base",
+        "tool": "aggregated_vector_db_search",
         "status": "ok",
         "args": {"query": "cyber", "top_k": 5, "path_prefix": None},
         "result": {"chunk_ids": ["wiki/a.md#0"], "scores": [0.5]},
@@ -185,13 +185,13 @@ def test_a_trace_line_that_names_no_agent_is_echoed_under_the_step_it_came_from(
 
     demo.echo(stage, [older], demo.SPECIALIST)
 
-    assert "specialist -> search_knowledge_base(" in screen.getvalue()
+    assert "specialist -> aggregated_vector_db_search(" in screen.getvalue()
 
 
 def test_beat_three_writes_through_the_tool_and_shows_the_diff(
     five_beats: str, sandbox: Sandbox
 ) -> None:
-    assert f'propose_wiki_update(path="{CASE_DIR}/briefing.md"' in five_beats
+    assert f'propose_wiki_kb_update(path="{CASE_DIR}/briefing.md"' in five_beats
     assert f"diff - {CASE_DIR}/briefing.md" in five_beats
     assert "composed draft" in five_beats
     assert "## Risk assessment draft" in sandbox.written(CASE_DIR, "briefing.md")
@@ -281,7 +281,7 @@ def test_the_promotion_gate_waits_for_approval_with_the_lesson_on_screen(
     assert "approve" in prompt
     approved = seen.split(COMPOUND)[1]
     assert DRAFTED in approved
-    assert "propose_wiki_update" not in approved
+    assert "propose_wiki_kb_update" not in approved
 
 
 def test_no_pause_runs_the_gate_unattended(

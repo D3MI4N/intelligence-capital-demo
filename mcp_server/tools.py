@@ -6,12 +6,17 @@ route to storage - agents never open an index or a markdown file themselves -
 and every call, refused or served, leaves a trace line behind, naming the agent
 that made it when the context it was given carries a name.
 
-  search_knowledge_base  ranked chunks, each carrying the id and path a claim
-                         must cite
-  traverse_graph         the entity neighbourhood around a seed, bounded
-  read_case_context      the AGENTS.md cascade plus index and briefing, each
-                         with what it costs to read
-  propose_wiki_update    the only write path, guarded by mcp_server/writes.py
+  aggregated_vector_db_search  ranked chunks, each carrying the id and path a
+                               claim must cite
+  traverse_graph               the entity neighbourhood around a seed, bounded
+  read_case_context            the AGENTS.md cascade plus index and briefing,
+                               each with what it costs to read
+  propose_wiki_kb_update       the only write path, guarded by
+                               mcp_server/writes.py
+
+The search tool is named for what it does: it aggregates the nearest chunks the
+vector index returns for one embedded query. There is no keyword or lexical
+pass alongside it and therefore nothing hybrid to claim - see stores/stores.py.
 """
 
 from __future__ import annotations
@@ -34,13 +39,13 @@ from mcp_server.results import (
     WriteResult,
 )
 
-SEARCH = "search_knowledge_base"
+SEARCH = "aggregated_vector_db_search"
 TRAVERSE = "traverse_graph"
 READ_CASE = "read_case_context"
-PROPOSE = "propose_wiki_update"
+PROPOSE = "propose_wiki_kb_update"
 
 
-def search_knowledge_base(
+def aggregated_vector_db_search(
     context: ToolContext,
     query: str,
     top_k: int = 5,
@@ -174,7 +179,7 @@ def read_case_context(context: ToolContext, case_id: str) -> CaseContext:
     return result
 
 
-def propose_wiki_update(
+def propose_wiki_kb_update(
     context: ToolContext,
     path: str,
     operation: str,
