@@ -77,8 +77,29 @@ DRAFT_TASK = (
     "below. Carry the citation ids through in "
     "square brackets after the claim they support, and cite only ids that appear "
     "verbatim in the specialist findings below - nothing else, and never an id "
-    "you completed or adapted. Prefix anything you concluded rather than read "
-    "with 'Assessment:'."
+    "you completed or adapted."
+)
+
+# What the draft is held to on top of the task. The first rule is the one an
+# underwriter feels: a draft carrying three paragraphs prefixed 'Assessment:'
+# has no conclusion, it has three, and the reader has to decide which is the
+# answer. One closing paragraph, both graded labels in it, is the answer. The
+# second rule is the citation rule stated at the character level - an id that
+# lost its #c000 anchor addresses a document where it addressed a chunk of one,
+# and it resolves against neither the index nor the trace. The third is why the
+# graph is traversed at all: a lesson the platform already recorded is the
+# cheapest evidence in the case, and it only compounds if the draft cites it.
+OUTPUT_RULES = (
+    "Three rules the draft is held to:\n"
+    "- Close the draft with exactly one paragraph beginning 'Assessment:', and "
+    "state both the exposure severity and the appetite position in that one "
+    "paragraph. No other paragraph begins 'Assessment:' - a conclusion you draw "
+    "earlier stays in the sentence that carries it.\n"
+    "- Cite every id exactly as it was retrieved, character for character, "
+    "including the #c000 chunk anchor where the id carries one. Never cite an "
+    "id that is not present in the context you were given.\n"
+    "- Where a Lesson entity appears in the retrieved context and supports a "
+    "claim you are making, cite it by its id on that claim."
 )
 
 # Always asked for, and answered from the findings or not at all. Whether the
@@ -107,8 +128,13 @@ ALERT_TASK = (
 
 # Added only when there are open questions. Asking for a section that has no
 # content invites the model to write "Open questions: none", which is a line
-# the underwriter has to read before finding out it says nothing.
-OPEN_QUESTIONS_TASK = " End with the open questions as they stand - do not resolve them."
+# the underwriter has to read before finding out it says nothing. They sit
+# above the closing assessment rather than after it: what the run could not
+# settle is evidence for the conclusion, so it is read before it.
+OPEN_QUESTIONS_TASK = (
+    " Set out the open questions as they stand, immediately above the closing "
+    "assessment paragraph - do not resolve them."
+)
 
 
 @dataclass(frozen=True)
@@ -223,7 +249,7 @@ def write_back_step(
     task = DRAFT_TASK.format(case_id=orientation.case_id)
     if report.open_questions:
         task += OPEN_QUESTIONS_TASK
-    prompt = "\n\n".join((task, ALERT_TASK, render(assessments, report)))
+    prompt = "\n\n".join((task, OUTPUT_RULES, ALERT_TASK, render(assessments, report)))
     composed = normalise(meter(system, prompt))
     draft = strip_unverified(composed.text, allowed)
     spend = meter.take()

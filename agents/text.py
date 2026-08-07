@@ -6,9 +6,16 @@ output arrives in the wiki carrying non-breaking hyphens and en dashes that
 look identical on screen, break a grep for an identifier, and land in the next
 rebuild as chunk text nobody can search for.
 
+The same boundary settles one more thing the model is inconsistent about: the
+separator between ids inside a bracketed citation block. It writes " - " on one
+claim and "; " on the next, and the wiki ends up with two ways of reading the
+same list. Inside the brackets the separator becomes " - "; a semicolon in
+prose is punctuation and is left exactly where the drafter put it.
+
 So normalisation happens once, at the boundary where composed text becomes a
 wiki write, and it reports what it changed. A silent cleanup nobody can see is
-a cleanup nobody can audit - the count goes on the trace line.
+a cleanup nobody can audit - the count goes on the trace line, and a separator
+rewritten counts the same as a character replaced.
 
 Characters are written as escapes here on purpose: a non-breaking hyphen and a
 hyphen are the same glyph on screen, and a rule nobody can read is a rule
@@ -50,6 +57,15 @@ _SEPARATOR = re.compile(rf"[ \t]*[{SEPARATORS}][ \t]*")
 
 _TRANSLATION = str.maketrans(HYPHENS | INVISIBLES)
 
+# One bracketed block, and nothing nested inside it. A wikilink is [[...]] and
+# a markdown link is [text](target): neither carries a list of ids, and neither
+# is touched, because a semicolon inside one is not a separator.
+_BLOCK = re.compile(r"\[[^\[\]]*\]")
+
+# The separator to rewrite, with whatever spacing came with it: "a;b", "a; b"
+# and "a ; b" all read as the same list and all leave as "a - b".
+_ID_SEPARATOR = re.compile(r"[ \t]*;[ \t]*")
+
 
 @dataclass(frozen=True)
 class Normalised:
@@ -64,8 +80,23 @@ class Normalised:
 
 
 def normalise(text: str) -> Normalised:
-    """Rewrite exotic dashes as ASCII and count every character replaced."""
+    """Rewrite exotic dashes as ASCII, separate ids the house way, and count both."""
     replacements = sum(text.count(character) for character in (*SEPARATORS, *HYPHENS, *INVISIBLES))
+    separated, rewritten = _separate_ids(text)
     return Normalised(
-        text=_SEPARATOR.sub(" - ", text).translate(_TRANSLATION), replacements=replacements
+        text=_SEPARATOR.sub(" - ", separated).translate(_TRANSLATION),
+        replacements=replacements + rewritten,
     )
+
+
+def _separate_ids(text: str) -> tuple[str, int]:
+    """Rewrite ";" as the house separator inside every bracketed block."""
+    rewritten = 0
+
+    def block(match: re.Match[str]) -> str:
+        nonlocal rewritten
+        separated, count = _ID_SEPARATOR.subn(" - ", match.group(0))
+        rewritten += count
+        return separated
+
+    return _BLOCK.sub(block, text), rewritten

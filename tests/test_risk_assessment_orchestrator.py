@@ -320,6 +320,24 @@ def test_the_drafter_is_told_to_cite_only_what_the_specialists_gave_it(
     assert "never an id you completed or adapted" in prompt
 
 
+def test_the_drafter_is_held_to_the_output_rules(sandbox: Sandbox, fake_llm: FakeLLM) -> None:
+    """Cheap, and the reason is not: an edit that drops one of these is silent.
+
+    Nothing downstream enforces them - the shape of the draft is the composer's
+    to get right - so the prompt carrying them is the whole guarantee.
+    """
+    orchestrator.run_risk_assessment(CASE, sandbox.context, fake_llm)
+
+    _, prompt = fake_llm.calls[-1]
+    assert "exactly one paragraph beginning 'Assessment:'" in prompt
+    assert "both the exposure severity and the appetite position in that one paragraph" in prompt
+    assert "No other paragraph begins 'Assessment:'" in prompt
+    assert "exactly as it was retrieved" in prompt
+    assert "#c000 chunk anchor" in prompt
+    assert "not present in the context you were given" in prompt
+    assert "Lesson entity appears in the retrieved context" in prompt
+
+
 def test_exotic_punctuation_is_normalised_before_the_draft_is_written(
     run: orchestrator.RunResult, sandbox: Sandbox
 ) -> None:
@@ -364,7 +382,7 @@ def test_a_clean_run_does_not_ask_the_drafter_for_open_questions(sandbox: Sandbo
 
     _, prompt = clean.calls[-1]
     assert "### Cross-validation" not in prompt
-    assert "End with the open questions" not in prompt
+    assert "Set out the open questions" not in prompt
 
 
 def test_a_run_with_open_questions_still_asks_for_them(sandbox: Sandbox, fake_llm: FakeLLM) -> None:
@@ -372,7 +390,7 @@ def test_a_run_with_open_questions_still_asks_for_them(sandbox: Sandbox, fake_ll
 
     _, prompt = fake_llm.calls[-1]
     assert "### Cross-validation" in prompt
-    assert "End with the open questions" in prompt
+    assert "Set out the open questions" in prompt
 
 
 def test_the_run_writes_nothing_the_write_tool_did_not_write(
