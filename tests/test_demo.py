@@ -36,7 +36,11 @@ CASE_DIR = "wiki/submissions/SUB-2025-007"
 STAMP = "2025-04-01"
 PLATFORM_PATH = "wiki/platform-ic/engagement-lessons/vendor-access-cyber-logistics.md"
 COMPOUND = "COMPOUND - the case closes"
+HITL = "HUMAN IN THE LOOP - step 9"
 DRAFTED = "Price the concentration"  # a line only the drafted lesson carries
+INVITATION = f"open {CASE_DIR}/briefing.md in Obsidian"
+SCRIPTED = "scripted edit from fixtures/hitl-edit.md"
+NOTE = "Underwriter note"  # the heading the scripted edit adds to the briefing
 
 
 @pytest.fixture
@@ -204,6 +208,49 @@ def test_beat_four_applies_the_scripted_edit_and_says_so(five_beats: str, sandbo
     assert "scripted edit from fixtures/hitl-edit.md" in five_beats
     assert "Underwriter note" in sandbox.written(CASE_DIR, "briefing.md")
     assert "orientation tokens" in five_beats
+
+
+def test_beat_four_invites_the_human_before_any_edit_is_applied(five_beats: str) -> None:
+    """The offer to write comes first. Nothing lands in the same breath as it."""
+    beat = five_beats.split(HITL)[1]
+
+    assert beat.index(INVITATION) < beat.index(SCRIPTED)
+    assert beat.index(SCRIPTED) < beat.index("human edit - ")
+
+
+def test_beat_four_pauses_for_its_own_enter_before_the_edit_lands(
+    monkeypatch: pytest.MonkeyPatch, paused_stage: Stage, sandbox: Sandbox, fake_llm: FakeLLM
+) -> None:
+    """Two pauses, and the fixture is applied at the second one, never the first.
+
+    Recorded off the file rather than off the screen: what must not happen is
+    the note reaching briefing.md while the presenter is still being asked for
+    it, and only the file can say whether it did.
+    """
+    briefing = sandbox.path(CASE_DIR, "briefing.md")
+    edited: list[tuple[str, bool]] = []
+
+    def press(_console: Console, prompt: object = "", **_: object) -> str:
+        edited.append((str(prompt), NOTE in briefing.read_text(encoding="utf-8")))
+        return ""
+
+    monkeypatch.setattr(Console, "input", press)
+    _beats(paused_stage, sandbox, fake_llm)
+
+    prompts = [prompt for prompt, _ in edited]
+    transition = _pause_at(prompts, f"next: {HITL}")
+    inner = _pause_at(prompts, "edit applied")
+    assert transition < inner
+    assert not any(applied for _, applied in edited[: inner + 1])
+    assert NOTE in briefing.read_text(encoding="utf-8")
+
+
+def _pause_at(prompts: list[str], wanted: str) -> int:
+    """Where the presenter was asked for this, or a failure naming what was asked."""
+    for index, prompt in enumerate(prompts):
+        if wanted in prompt:
+            return index
+    raise AssertionError(f"no pause for '{wanted}' - the run only paused at {prompts}")
 
 
 def test_beat_five_closes_the_case_and_the_query_returns_one_more_result(

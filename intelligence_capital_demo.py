@@ -324,9 +324,18 @@ def beat_write_back(
 def beat_hitl(stage: Stage, context: ToolContext, orientation: Orientation, replay: bool) -> None:
     """Phase four: a human edit, and the read that picks it up.
 
-    The comparison is taken from a fresh orientation rather than the one ORIENT
-    took, so the numbers on screen are the cost of the human's edit and not of
-    the draft the run itself wrote in between.
+    Two pauses, and the order between them is the whole beat. The one before
+    this phase is the presenter moving the run on; this phase then renders its
+    invitation and waits again, and only the second enter applies anything. A
+    single pause would mean the note appeared in the same breath as the offer
+    to write one, and the room would never see the moment a human was asked.
+
+    What happens at that second enter is the same in both modes: whatever is in
+    the file now is the edit. Nothing typed means the fixture is applied, which
+    is the safe option live and the only option in replay. The comparison is
+    taken from a fresh orientation rather than the one ORIENT took, so the
+    numbers on screen are the cost of the human's edit and not of the draft the
+    run itself wrote in between.
     """
     stage.beat(*CLAIMS[4])
     path = hitl.target(context.wiki_dir, orientation.case_dir)
@@ -335,23 +344,27 @@ def beat_hitl(stage: Stage, context: ToolContext, orientation: Orientation, repl
     before = hitl.read(path)
     current = orient_step(context, orientation.case_id)
 
+    stage.human(f"open {relative} in Obsidian, add a note, save")
+    stage.note(f"or write nothing, and the run applies the scripted note in {fixture}")
     if replay:
-        stage.human(f"scripted edit from {fixture}")
         stage.note("replay applies the fixture so the rebuild in COMPOUND finds its recordings")
+    stage.pause("edit applied")
+
+    after = hitl.read(path)
+    if after == before:
+        stage.human(f"scripted edit from {fixture}")
         edit = hitl.apply_fixture(context.wiki_dir, orientation.case_dir, context.traces_dir)
     else:
-        stage.human(f"open {relative} in Obsidian, add a note, save")
-        stage.pause("edit applied")
-        after = hitl.read(path)
-        if after == before:
-            stage.note("no edit typed - applying the scripted one instead")
-            edit = hitl.apply_fixture(context.wiki_dir, orientation.case_dir, context.traces_dir)
+        edit = hitl.human_edit(relative, before, after, context.traces_dir)
+        if edit.scripted:
+            stage.note(f"the note saved in Obsidian is {fixture} - the scripted edit")
         else:
-            edit = hitl.human_edit(relative, before, after, context.traces_dir)
-            if edit.scripted:
-                stage.note(f"the note saved in Obsidian is {fixture} - the scripted edit")
-            else:
-                stage.warn("typed edit - re-record the traces before rehearsing this run in replay")
+            stage.warn("typed edit - re-record the traces before rehearsing this run in replay")
+            if replay:
+                stage.warn(
+                    "no recording covers this sentence - ctrl+C and start again from "
+                    f"{PROGRAM} reset --replay"
+                )
 
     stage.markdown(edit.section, title=f"human edit - {edit.path}")
     stage.step("the next read is a plain file read - nothing was imported or re-indexed")
