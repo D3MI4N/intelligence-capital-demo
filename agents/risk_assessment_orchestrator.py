@@ -86,14 +86,22 @@ DRAFT_TASK = (
 # here, would be the demo announcing a conflict it already knew about. The
 # shape is specified and the subject deliberately is not.
 ALERT_TASK = (
-    " If the findings conflict with each other or with the case record - a "
-    "clause applied in one source and absent from another, a grading that "
-    "cannot stand beside the position stated next to it, a precedent that "
-    "contradicts the current reading - open the draft with a single "
-    "third-level heading line naming that conflict and nothing above it, in "
-    "the form '### <subject> Conflict Alert: <what is in dispute> in <where it "
-    "applies>'. One line, and the sharpest conflict only. If the findings hold "
-    "together, write no heading at all."
+    "Before you draft, look for conflict in the evidence you were given - "
+    "between two findings, inside a single finding, or between the evidence "
+    "and the position being taken on it. What counts:\n"
+    "- a clause or exclusion applied in one source and absent from another, or "
+    "one whose application to this case was disputed or left unexamined\n"
+    "- something the retrieved documents state that the entity graph does not "
+    "carry, or the reverse\n"
+    "- a grading that cannot stand beside the position stated next to it\n"
+    "- a precedent whose outcome contradicts the current reading of the case\n\n"
+    "If you find one, the draft opens with a single third-level heading line "
+    "naming it and nothing above that line:\n\n"
+    "### <subject> Conflict Alert: <what is in dispute> in <where it applies>\n\n"
+    "One line, and the sharpest conflict only. It is the first thing an "
+    "underwriter reads, so it names the dispute rather than describing it, and "
+    "the paragraphs below still carry the evidence for it. If nothing in the "
+    "findings is in dispute, write no heading at all."
 )
 
 # Added only when there are open questions. Asking for a section that has no
@@ -211,10 +219,10 @@ def write_back_step(
     """
     allowed = frozenset(citation for assessment in assessments for citation in assessment.citations)
     system = f"{DRAFTER}\n\n{orientation.text}"
-    task = DRAFT_TASK.format(case_id=orientation.case_id) + ALERT_TASK
+    task = DRAFT_TASK.format(case_id=orientation.case_id)
     if report.open_questions:
         task += OPEN_QUESTIONS_TASK
-    prompt = "\n\n".join((task, render(assessments, report)))
+    prompt = "\n\n".join((task, ALERT_TASK, render(assessments, report)))
     composed = normalise(meter(system, prompt))
     draft = strip_unverified(composed.text, allowed)
     spend = meter.take()
