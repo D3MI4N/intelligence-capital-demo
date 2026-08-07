@@ -29,6 +29,46 @@ def test_invisible_characters_are_dropped_rather_than_replaced() -> None:
     assert normalise("CY\u00adEX\u200b-04").text == "CYEX-04"
 
 
+def test_a_semicolon_between_two_ids_becomes_the_house_separator() -> None:
+    """The model writes "; " on one claim and " - " on the next. The wiki gets one."""
+    result = normalise("[Case:SUB-2025-007; Clause:CY-EX-04]")
+
+    assert result.text == "[Case:SUB-2025-007 - Clause:CY-EX-04]"
+    assert result.replacements == 1
+    assert result.changed
+
+
+def test_a_block_mixing_both_separators_leaves_carrying_one() -> None:
+    original = "[Case:CLM-2024-042 - raw/clm042-fnol.md#c000;Lesson:L-001 ; Clause:CY-EX-04]"
+
+    result = normalise(original)
+
+    assert result.text == (
+        "[Case:CLM-2024-042 - raw/clm042-fnol.md#c000 - Lesson:L-001 - Clause:CY-EX-04]"
+    )
+    assert result.replacements == 2
+
+
+def test_a_semicolon_in_prose_outside_a_block_is_punctuation_and_stays() -> None:
+    """The rule is about a list of ids, not about how the drafter writes a sentence."""
+    original = "The wording is disputed; the exposure is not [Clause:CY-EX-04]."
+
+    result = normalise(original)
+
+    assert result.text == original
+    assert result.replacements == 0
+    assert not result.changed
+
+
+def test_a_block_already_using_the_house_separator_is_left_alone() -> None:
+    original = "matches the pattern [Case:SUB-2024-018 - Lesson:L-001]"
+
+    result = normalise(original)
+
+    assert result.text == original
+    assert result.replacements == 0
+
+
 def test_text_already_in_house_style_is_left_exactly_as_it_is() -> None:
     original = "exposure - severity high, wiki/claims/CLM-2024-042/index.md#c001 -> refer"
 
