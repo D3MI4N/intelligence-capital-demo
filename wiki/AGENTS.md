@@ -7,7 +7,8 @@ files extend them - they never repeat them.
 - Cite a source for every factual claim: a source note, a chunk ID from the
   query index, or an entity ID from the knowledge graph. No source, no claim.
 - Mark inference explicitly. Facts read from documents are stated plainly;
-  conclusions you derived are prefixed "Assessment:".
+  everything you concluded rather than read goes in one closing paragraph
+  prefixed "Assessment:", never scattered through the draft.
 - When evidence conflicts, record both positions. Never silently resolve a
   conflict - flag it in open-questions.md and move on.
 - Escalate to a human when: authority thresholds are exceeded, evidence
