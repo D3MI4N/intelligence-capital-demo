@@ -57,9 +57,9 @@ Nothing else is typed during the demo, with one optional exception in HUMAN IN T
 
 ## ORIENT - step 2 of the swarm flow
 
-**On screen:** five file reads with a token count per file and a running total, ending at 645 tokens.
+**On screen:** five file reads with a token count per file and a running total, ending at 646 tokens.
 
-**Say:** **"The orchestrator reads the rules before the case: platform rules, domain rules, case rules, each layer extending the last. Watch the right column - that is the entire bill for getting an agent situated, 645 tokens, before a single model call. And it stays bounded no matter how large the knowledge base grows, because orientation reads the cascade, not the corpus."**
+**Say:** **"The orchestrator reads the rules before the case: platform rules, domain rules, case rules, each layer extending the last. Watch the right column - that is the entire bill for getting an agent situated, 646 tokens, before a single model call. And it stays bounded no matter how large the knowledge base grows, because orientation reads the cascade, not the corpus."**
 
 **Do:** press enter - RETRIEVE renders.
 
@@ -158,7 +158,7 @@ Either way the screen ends up in the same place. If a `! typed edit - re-record 
 
 ## The close
 
-**On screen:** the final panel - 12 tool calls, 4 model calls, roughly thirteen thousand tokens, 4 wiki writes. The three counts are fixed by the run; the token total is whatever the recording composed, so read it off the screen rather than from here.
+**On screen:** the final panel - 12 tool calls, 4 model calls, roughly twelve and a half thousand tokens, 4 wiki writes. The three counts are fixed by the run; the token total is whatever the recording composed, so read it off the screen rather than from here.
 
 **Say:** **"Every number on this screen is auditable - the trace is append-only JSONL, and what you watched is literally a replay of it. 
 Notice the run does not end with a decision - it ends with a referral. The draft, the evidence, the broker's note are all in the wiki waiting for a senior underwriter, and when that person decides, their decision becomes the first numbered record in this case's decisions file. The agents got everything ready; the judgment stays human. That is not a limitation we hit - it is the design."**

@@ -384,3 +384,33 @@ run --replay is not the acceptance for this branch: it was accepted on make
 check plus one live end-to-end run. A human re-records it afterwards by the
 rehearsal protocol in CLAUDE.md - reset, run, bless, reset --replay, run
 --replay - and commits the result. Until that lands, the demo runs live.
+
+## D-2026-08-08 - Re-record cycle order and composer discipline
+
+The Batch B re-record settled four practices, recorded here for the next
+cycle.
+
+Cycle order: bless, then empty-key certification in the separate clone,
+then the docs sweep, then the tag. A demo tag means certified, not merely
+recorded. PRESENTER.md figures come from the blessed roll only.
+
+Evidence footer rules, implemented in the composer: only vault-internal
+targets are linked - paths outside wiki/ stay plain text, since the vault
+cannot resolve them and Obsidian would create junk notes on click. One
+entry per resolved file, with a readable alias. Markdown link syntax, not
+wikilinks, so the ingest derives no graph edges from the footer and the
+census stays stable across the write-back.
+
+Structural drafting rules live in the composer prompt, never in the
+platform AGENTS.md. The orientation cascade reaches every agent, and a
+document-structure rule placed there degraded specialist findings twice
+(uncited findings where none had occurred before). Deterministic style
+concerns (citation separators) live in the normaliser as code, not in
+prompt hope.
+
+Blessing selects from variance. Live rolls differ in judgment and prose;
+the gate is written down and the recording freezes the roll that passes
+it. Rolls where validation fired (uncited findings, a contradiction
+between specialists) are kept as logs outside the repo - they demonstrate
+the governance stack working and answer the "what happens when it fails"
+question honestly.
